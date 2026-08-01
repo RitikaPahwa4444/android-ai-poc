@@ -1,5 +1,11 @@
 package org.aipoc
 
+import org.commons.ai.common.Detection
+import org.commons.ai.common.DetectionOptions
+import org.commons.ai.vision.CommonsVision
+import org.commons.ai.vision.FaceDetector
+import org.commons.ai.vision.PlateDetector
+
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
@@ -32,8 +38,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var overlay: DetectionOverlayView
     private lateinit var status: TextView
     private var bitmap: Bitmap? = null
-    private var faceDetector: OnnxYuNetDetector? = null
-    private var plateDetector: OnnxYuNetDetector? = null
+    private var faceDetector: FaceDetector? = null
+    private var plateDetector: PlateDetector? = null
     private var threshold = 0.5f
     private lateinit var thresholdLabel: TextView
 
@@ -122,8 +128,9 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 withContext(Dispatchers.Default) {
                     val started = System.nanoTime()
-                    val faces = getFaceDetector().detect(source, threshold)
-                    val plates = getPlateDetector().detect(source, threshold)
+                    val options = DetectionOptions(confidenceThreshold = threshold)
+                    val faces = getFaceDetector().detect(source, options)
+                    val plates = getPlateDetector().detect(source, options)
                     Pair(faces + plates, (System.nanoTime() - started) / 1_000_000)
                 }
             }.onSuccess { result ->
@@ -132,8 +139,8 @@ class MainActivity : ComponentActivity() {
                     Locale.US,
                     "Detected %d regions (%d faces, %d plates) in %d ms. Tap/drag boxes; delete false positives.",
                     result.first.size,
-                    result.first.count { it.label == "face" },
-                    result.first.count { it.label == "license plate" },
+                    result.first.count { it.type == org.commons.ai.common.DetectionType.FACE },
+                    result.first.count { it.type == org.commons.ai.common.DetectionType.LICENSE_PLATE },
                     result.second
                 )
             }.onFailure { error ->
@@ -170,11 +177,11 @@ class MainActivity : ComponentActivity() {
         status.text = "Applied local pixelation to ${regions.size} regions."
     }
 
-    private fun getFaceDetector(): OnnxYuNetDetector =
-        faceDetector ?: OnnxYuNetDetector(this, DetectorKind.FACE).also { faceDetector = it }
+    private fun getFaceDetector(): FaceDetector =
+        faceDetector ?: CommonsVision.faceDetector(this).also { faceDetector = it }
 
-    private fun getPlateDetector(): OnnxYuNetDetector =
-        plateDetector ?: OnnxYuNetDetector(this, DetectorKind.LICENSE_PLATE).also { plateDetector = it }
+    private fun getPlateDetector(): PlateDetector =
+        plateDetector ?: CommonsVision.plateDetector(this).also { plateDetector = it }
 
     override fun onDestroy() {
         faceDetector?.close()

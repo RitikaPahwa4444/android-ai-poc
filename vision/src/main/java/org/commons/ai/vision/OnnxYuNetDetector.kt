@@ -1,14 +1,17 @@
-package org.aipoc
+package org.commons.ai.vision
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
 import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
 import java.nio.FloatBuffer
+import org.commons.ai.common.Detection
+import org.commons.ai.common.DetectionOptions
+import org.commons.ai.common.DetectionType
+import org.commons.ai.runtime.OrtRuntime
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
@@ -22,11 +25,12 @@ import kotlin.math.sqrt
  * share the output contract: face YuNet has cls/obj/bbox heads, while LPD-YuNet
  * has SSD-style loc/conf/iou outputs and four corner points per detection.
  */
-class OnnxYuNetDetector(
+class OnnxYuNetDetector internal constructor(
     context: Context,
     private val kind: DetectorKind
-) : AutoCloseable {
-    private val environment = OrtEnvironment.getEnvironment()
+) : Detector, FaceDetector, PlateDetector, AutoCloseable {
+    private val runtime = OrtRuntime(context)
+    private val environment = runtime.environment
     private val session: OrtSession
     private val inputWidth: Int
     private val inputHeight: Int
@@ -37,8 +41,7 @@ class OnnxYuNetDetector(
         require(assetFileName in bundledModels) {
             "Missing model asset '${kind.assetName}'. Bundled models: ${bundledModels.joinToString()}"
         }
-        val modelBytes = context.assets.open(kind.assetName).use { it.readBytes() }
-        session = environment.createSession(modelBytes, OrtSession.SessionOptions())
+        session = runtime.openSession(kind.assetName)
         val inputInfo = session.inputInfo.values.first().info as TensorInfo
         val shape = inputInfo.shape
         require(shape.size == 4) { "Expected NCHW model input, got ${shape.contentToString()}" }
@@ -47,7 +50,8 @@ class OnnxYuNetDetector(
     }
 
     /** Detects faces or plates and maps model coordinates back to the source bitmap. */
-    fun detect(source: Bitmap, threshold: Float = kind.threshold): List<Detection> {
+    override fun detect(source: Bitmap, options: DetectionOptions): List<Detection> {
+        val threshold = options.confidenceThreshold
         val regions = if (kind == DetectorKind.LICENSE_PLATE) {
             plateRegions(source)
         } else {
@@ -69,7 +73,7 @@ class OnnxYuNetDetector(
                 if (crop !== source) crop.recycle()
             }
         }
-        return nonMaximumSuppression(detections)
+        return nonMaximumSuppression(detections).take(options.maximumResults)
     }
 
     private fun detectRegion(source: Bitmap, threshold: Float): List<Detection> {
@@ -163,7 +167,7 @@ class OnnxYuNetDetector(
                 )
                 box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
                 if (box.width() > 1f && box.height() > 1f) {
-                    detections += Detection(kind.label, score, box)
+                    detections += Detection(kind.detectionType, score, box)
                 }
             }
         }
@@ -237,7 +241,7 @@ class OnnxYuNetDetector(
             )
             box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
             if (box.width() > 1f && box.height() > 1f) {
-                detections += Detection(kind.label, score, box)
+                detections += Detection(kind.detectionType, score, box)
             }
         }
         return nonMaximumSuppression(detections)

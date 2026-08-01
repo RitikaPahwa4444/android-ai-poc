@@ -49,10 +49,7 @@ android {
 }
 
 dependencies {
-    // Locally built ONNX Runtime 1.22.0, reduced to the operators used by the
-    // bundled face and INT8 plate models. The AAR contains both Java classes
-    // and the arm64-v8a libonnxruntime*.so files.
-    implementation(files("libs/onnxruntime-android-1.22.0-reduced.aar"))
+    implementation(project(":vision"))
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

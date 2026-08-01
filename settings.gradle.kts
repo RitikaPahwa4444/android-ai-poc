@@ -16,5 +16,8 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "android-ai-poc"
+rootProject.name = "commons-ai"
 include(":app")
+include(":common")
+include(":runtime")
+include(":vision")

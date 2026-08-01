@@ -1,5 +1,7 @@
 package org.aipoc
 
+import org.commons.ai.common.Detection
+
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -63,7 +65,7 @@ class DetectionOverlayView(context: Context) : View(context) {
             canvas.drawRect(detection.bounds, paint)
             textPaint.color = paint.color
             canvas.drawText(
-                "${detection.label} ${(detection.confidence * 100).toInt()}%",
+                "${detection.type.name.lowercase().replace('_', ' ')} ${(detection.confidence * 100).toInt()}%",
                 detection.bounds.left,
                 (detection.bounds.top - 8f).coerceAtLeast(28f),
                 textPaint
