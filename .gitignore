@@ -1,0 +1,13 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+*.hprof
+*.apk
+*.aab
+app/build/
+
+# Device- and benchmark-local data. Keep the public manifest, not downloaded images.
+benchmark/images/
