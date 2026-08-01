@@ -33,6 +33,8 @@ python3 -m venv "${PY_ENV}"
 
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
   --format ORT "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
+sed -i.bak '/^#/d' "${OPS_CONFIG}"
+rm -f "${OPS_CONFIG}.bak"
 
 if [[ ! -d "${EIGEN_DIR}" ]]; then
   git clone --filter=blob:none --no-checkout \
