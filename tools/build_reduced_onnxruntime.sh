@@ -55,6 +55,7 @@ BUILD_ARGS=( \
   --ctest_path="${CMAKE_DIR}/bin/ctest" \
   --include_ops_by_config="${OPS_CONFIG}" \
   --build_java \
+  --target onnxruntime4j_jni \
   --config Release \
   --skip_tests
 )
