@@ -63,7 +63,9 @@ class OnnxYuNetDetector(
                     )
                 }
             } finally {
-                crop.recycle()
+                // Android may return the original bitmap for a full-image crop.
+                // Never recycle the caller-owned source image.
+                if (crop !== source) crop.recycle()
             }
         }
         return nonMaximumSuppression(detections)
