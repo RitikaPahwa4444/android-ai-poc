@@ -1,8 +1,9 @@
-# Commons AI POC
+# Android face and license plate detector POC
 
-Standalone Android proof of concept for local face and license-plate suggestions. It is
-isolated from `apps-android-commons` so model, runtime, and size experiments cannot affect
-the production app.
+Standalone Android proof of concept for local face and license-plate suggestions. Built to understand impact on app size.  
+
+<img width="277" height="606" alt="Screenshot 2026-08-01 at 8 05 44 PM" src="https://github.com/user-attachments/assets/44973050-9f46-48e8-b568-ecf62b20530a" />
+
 
 ## Current implementation
 
