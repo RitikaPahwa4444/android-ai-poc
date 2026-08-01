@@ -6,7 +6,7 @@ the production app.
 
 ## Current implementation
 
-- ONNX Runtime Android 1.20.0; minSdk 21.
+- ONNX Runtime Android 1.22.0; minSdk 21; configured for Android 16 KB page-size packaging.
 - OpenCV Zoo YuNet face detector.
 - OpenCV Zoo LPD-YuNet license-plate detector.
 - Model-specific ONNX preprocessing and output decoders.

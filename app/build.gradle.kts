@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "org.aipoc"
-        // ONNX Runtime Android 1.20.0 is the newest version verified here with API 21.
+        // Keep API 21 support for the standalone POC.
         minSdk = 21
         targetSdk = 36
         versionCode = 1
@@ -26,6 +26,15 @@ android {
         }
     }
 
+    // Keep native libraries in the APK with the packaging expected by Android's
+    // 16 KB page-size devices. The ORT dependency must also contain 16 KB-aligned
+    // ELF LOAD segments; packaging alone cannot repair an incorrectly built .so.
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -34,7 +43,9 @@ android {
 }
 
 dependencies {
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    // 1.22.0 includes the Android JNI alignment fix needed for 16 KB page-size
+    // devices. Keep this version (or newer) for Play compatibility.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
