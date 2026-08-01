@@ -10,5 +10,10 @@ in the standalone POC so that benchmarks are reproducible.
 
 Source: https://github.com/opencv/opencv_zoo
 
+The plate output decoder follows the public OpenCV Zoo reference implementation:
+https://github.com/opencv/opencv_zoo/blob/main/models/license_plate_detection_yunet/lpd_yunet.py
+The POC keeps only the Android/ONNX Runtime port needed for these two models; it does not
+bundle OpenCV's full Android DNN runtime.
+
 The face YuNet directory is MIT licensed. Review the exact model and dataset terms again
 before redistributing either model in the Commons app.

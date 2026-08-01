@@ -99,23 +99,19 @@ class OnnxYuNetDetector(
                 longArrayOf(1, 3, inferenceHeight.toLong(), inferenceWidth.toLong())
             ).use { tensor ->
                 session.run(mapOf(session.inputNames.first() to tensor)).use { result ->
-                    val heads = mutableListOf<Head>()
-                    for (index in 0 until result.size()) {
-                        val value = result[index]
-                        (value as? OnnxTensor)?.let { tensorValue ->
-                            Head(session.outputNames.elementAt(index), tensorValue)
-                        }?.let(heads::add)
+                    val outputs = session.outputNames.mapIndexedNotNull { index, name ->
+                        (result[index] as? OnnxTensor)?.let { Output(name, it.readFloatArray()) }
                     }
                     return if (kind == DetectorKind.LICENSE_PLATE) {
                         decodeLicensePlates(
-                            heads,
+                            outputs,
                             source.width,
                             source.height,
                             inferenceWidth,
                             inferenceHeight
                         )
                     } else {
-                        decodeFaces(heads, source.width, source.height, inferenceWidth, inferenceHeight)
+                        decodeFaces(outputs, source.width, source.height, inferenceWidth, inferenceHeight)
                     }
                 }
             }
@@ -125,18 +121,18 @@ class OnnxYuNetDetector(
     }
 
     private fun decodeFaces(
-        heads: List<Head>,
+        outputs: List<Output>,
         sourceWidth: Int,
         sourceHeight: Int,
         modelWidth: Int,
         modelHeight: Int
     ): List<Detection> {
-        val grouped = heads.associateBy { it.name }
+        val grouped = outputs.associateBy { it.name }
         val detections = mutableListOf<Detection>()
         for (stride in intArrayOf(8, 16, 32)) {
-            val cls = find(grouped, "cls_$stride") ?: continue
-            val obj = find(grouped, "obj_$stride") ?: continue
-            val bbox = find(grouped, "bbox_$stride") ?: continue
+            val cls = grouped["cls_$stride"] ?: continue
+            val obj = grouped["obj_$stride"] ?: continue
+            val bbox = grouped["bbox_$stride"] ?: continue
             val count = min(cls.size, min(obj.size, bbox.size / 4))
             val gridWidth = (modelWidth + stride - 1) / stride
             for (index in 0 until count) {
@@ -177,16 +173,16 @@ class OnnxYuNetDetector(
      * predicted quadrilateral is conservatively enclosed by one rectangle.
      */
     private fun decodeLicensePlates(
-        heads: List<Head>,
+        outputs: List<Output>,
         sourceWidth: Int,
         sourceHeight: Int,
         modelWidth: Int,
         modelHeight: Int
     ): List<Detection> {
-        val grouped = heads.associateBy { it.name.lowercase() }
-        val loc = findByName(grouped, "loc") ?: return emptyList()
-        val conf = findByName(grouped, "conf") ?: return emptyList()
-        val iou = findByName(grouped, "iou") ?: return emptyList()
+        val grouped = outputs.associateBy { it.name.lowercase() }
+        val loc = grouped["loc"] ?: return emptyList()
+        val conf = grouped["conf"] ?: return emptyList()
+        val iou = grouped["iou"] ?: return emptyList()
         val priors = generatePlatePriors(modelWidth, modelHeight)
         val count = min(priors.size, min(loc.size / 14, min(conf.size / 2, iou.size)))
         val detections = mutableListOf<Detection>()
@@ -286,14 +282,6 @@ class OnnxYuNetDetector(
         return listOf(0, last / 2, last).distinct()
     }
 
-    private fun find(heads: Map<String, Head>, expectedName: String): FloatArray? {
-        val head = heads.entries.firstOrNull { it.key.contains(expectedName) }?.value ?: return null
-        return head.values
-    }
-
-    private fun findByName(heads: Map<String, Head>, expectedName: String): FloatArray? =
-        heads.entries.firstOrNull { it.key == expectedName || it.key.endsWith("/$expectedName") }?.value?.values
-
     /** YuNet exports sigmoid probabilities, not logits. Match OpenCV's clamp. */
     private fun probability(value: Float): Float = value.coerceIn(0f, 1f)
 
@@ -320,15 +308,11 @@ class OnnxYuNetDetector(
         session.close()
     }
 
-    private data class Head(val name: String, val tensor: OnnxTensor) {
-        val size: Int get() = tensor.info.shape.fold(1L) { acc, value -> acc * value }.toInt()
-        val values: FloatArray
-            get() = tensor.floatBuffer.let { buffer ->
-                val copy = FloatArray(buffer.remaining())
-                buffer.get(copy)
-                copy
-        }
+    private fun OnnxTensor.readFloatArray(): FloatArray = floatBuffer.let { buffer ->
+        FloatArray(buffer.remaining()).also(buffer::get)
     }
+
+    private data class Output(val name: String, val values: FloatArray)
 
     private data class PlatePrior(
         val cx: Float,
