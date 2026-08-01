@@ -25,7 +25,9 @@ checksums, and upstream licensing are in
 
 ## Build and run
 
-Configure an Android SDK in `local.properties` or `ANDROID_HOME`, then run:
+Configure an Android SDK in `local.properties` or `ANDROID_HOME`, and use JDK 17
+(`JAVA_HOME`) for the Android Gradle build. JDK 24 can fail AGP’s `jlink` transform
+of `core-for-system-modules.jar`. Then run:
 
 ```bash
 ./gradlew assembleDebug
