@@ -16,8 +16,9 @@ import kotlin.math.sqrt
 /**
  * Runs the OpenCV Zoo YuNet and LPD-YuNet ONNX graphs through ONNX Runtime.
  *
- * Both graphs expose the same three detection heads (strides 8, 16 and 32).
- * The plate graph uses the same box encoding, so it can share this decoder.
+ * Face YuNet and LPD-YuNet share the ONNX Runtime integration, but they do not
+ * share the output contract: face YuNet has cls/obj/bbox heads, while LPD-YuNet
+ * has SSD-style loc/conf/iou outputs and four corner points per detection.
  */
 class OnnxYuNetDetector(
     context: Context,
@@ -77,7 +78,11 @@ class OnnxYuNetDetector(
                             Head(session.outputNames.elementAt(index), tensorValue)
                         }?.let(heads::add)
                     }
-                    return decode(heads, source.width, source.height)
+                    return if (kind == DetectorKind.LICENSE_PLATE) {
+                        decodeLicensePlates(heads, source.width, source.height)
+                    } else {
+                        decodeFaces(heads, source.width, source.height)
+                    }
                 }
             }
         } finally {
@@ -85,7 +90,7 @@ class OnnxYuNetDetector(
         }
     }
 
-    private fun decode(heads: List<Head>, sourceWidth: Int, sourceHeight: Int): List<Detection> {
+    private fun decodeFaces(heads: List<Head>, sourceWidth: Int, sourceHeight: Int): List<Detection> {
         val grouped = heads.associateBy { it.name }
         val detections = mutableListOf<Detection>()
         for (stride in intArrayOf(8, 16, 32)) {
@@ -121,10 +126,109 @@ class OnnxYuNetDetector(
         return nonMaximumSuppression(detections)
     }
 
+    /**
+     * Decodes OpenCV Zoo's LPD-YuNet output contract. The model emits:
+     *   loc: [N, 14] (SSD offsets; four corners use columns 4, 6, 10, 12)
+     *   conf: [N, 2]  (background and plate confidence)
+     *   iou: [N, 1]   (predicted localization quality)
+     *
+     * This follows the reference lpd_yunet.py implementation. The app's
+     * BlurRegion pipeline currently accepts axis-aligned rectangles, so the
+     * predicted quadrilateral is conservatively enclosed by one rectangle.
+     */
+    private fun decodeLicensePlates(
+        heads: List<Head>,
+        sourceWidth: Int,
+        sourceHeight: Int
+    ): List<Detection> {
+        val grouped = heads.associateBy { it.name.lowercase() }
+        val loc = findByName(grouped, "loc") ?: return emptyList()
+        val conf = findByName(grouped, "conf") ?: return emptyList()
+        val iou = findByName(grouped, "iou") ?: return emptyList()
+        val priors = generatePlatePriors()
+        val count = min(priors.size, min(loc.size / 14, min(conf.size / 2, iou.size)))
+        val detections = mutableListOf<Detection>()
+        val scaleX = inputWidth.toFloat()
+        val scaleY = inputHeight.toFloat()
+
+        for (index in 0 until count) {
+            val classScore = conf[index * 2 + 1].coerceIn(0f, 1f)
+            val iouScore = iou[index].coerceIn(0f, 1f)
+            val score = sqrt(classScore * iouScore)
+            if (score < kind.threshold) continue
+
+            val prior = priors[index]
+            val offset = index * 14
+            val points = floatArrayOf(
+                (prior.cx + loc[offset + 4] * 0.1f * prior.width) * scaleX,
+                (prior.cy + loc[offset + 5] * 0.1f * prior.height) * scaleY,
+                (prior.cx + loc[offset + 6] * 0.1f * prior.width) * scaleX,
+                (prior.cy + loc[offset + 7] * 0.1f * prior.height) * scaleY,
+                (prior.cx + loc[offset + 10] * 0.1f * prior.width) * scaleX,
+                (prior.cy + loc[offset + 11] * 0.1f * prior.height) * scaleY,
+                (prior.cx + loc[offset + 12] * 0.1f * prior.width) * scaleX,
+                (prior.cy + loc[offset + 13] * 0.1f * prior.height) * scaleY
+            )
+            val left = points.filterIndexed { point, _ -> point % 2 == 0 }.minOrNull() ?: continue
+            val top = points.filterIndexed { point, _ -> point % 2 == 1 }.minOrNull() ?: continue
+            val right = points.filterIndexed { point, _ -> point % 2 == 0 }.maxOrNull() ?: continue
+            val bottom = points.filterIndexed { point, _ -> point % 2 == 1 }.maxOrNull() ?: continue
+            val box = RectF(
+                left * sourceWidth / scaleX,
+                top * sourceHeight / scaleY,
+                right * sourceWidth / scaleX,
+                bottom * sourceHeight / scaleY
+            )
+            box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
+            if (box.width() > 1f && box.height() > 1f) {
+                detections += Detection(kind.label, score, box)
+            }
+        }
+        return nonMaximumSuppression(detections)
+    }
+
+    private fun generatePlatePriors(): List<PlatePrior> {
+        val minSizes = arrayOf(
+            intArrayOf(10, 16, 24),
+            intArrayOf(32, 48),
+            intArrayOf(64, 96),
+            intArrayOf(128, 192, 256)
+        )
+        val steps = intArrayOf(8, 16, 32, 64)
+        fun halve(value: Int): Int = value / 2
+        val featureMap2 = intArrayOf(halve((inputHeight + 1) / 2), halve((inputWidth + 1) / 2))
+        val featureMap3 = intArrayOf(halve(featureMap2[0]), halve(featureMap2[1]))
+        val featureMap4 = intArrayOf(halve(featureMap3[0]), halve(featureMap3[1]))
+        val featureMap5 = intArrayOf(halve(featureMap4[0]), halve(featureMap4[1]))
+        val featureMap6 = intArrayOf(halve(featureMap5[0]), halve(featureMap5[1]))
+        val featureMaps = arrayOf(featureMap3, featureMap4, featureMap5, featureMap6)
+        val priors = mutableListOf<PlatePrior>()
+        for (feature in featureMaps.indices) {
+            val rows = featureMaps[feature][0]
+            val columns = featureMaps[feature][1]
+            for (row in 0 until rows) {
+                for (column in 0 until columns) {
+                    for (size in minSizes[feature]) {
+                        priors += PlatePrior(
+                            cx = (column + 0.5f) * steps[feature] / inputWidth,
+                            cy = (row + 0.5f) * steps[feature] / inputHeight,
+                            width = size.toFloat() / inputWidth,
+                            height = size.toFloat() / inputHeight
+                        )
+                    }
+                }
+            }
+        }
+        return priors
+    }
+
     private fun find(heads: Map<String, Head>, expectedName: String): FloatArray? {
         val head = heads.entries.firstOrNull { it.key.contains(expectedName) }?.value ?: return null
         return head.values
     }
+
+    private fun findByName(heads: Map<String, Head>, expectedName: String): FloatArray? =
+        heads.entries.firstOrNull { it.key == expectedName || it.key.endsWith("/$expectedName") }?.value?.values
 
     /** YuNet exports sigmoid probabilities, not logits. Match OpenCV's clamp. */
     private fun probability(value: Float): Float = value.coerceIn(0f, 1f)
@@ -159,6 +263,13 @@ class OnnxYuNetDetector(
                 val copy = FloatArray(buffer.remaining())
                 buffer.get(copy)
                 copy
-            }
+        }
     }
+
+    private data class PlatePrior(
+        val cx: Float,
+        val cy: Float,
+        val width: Float,
+        val height: Float
+    )
 }
