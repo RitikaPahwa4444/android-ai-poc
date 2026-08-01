@@ -29,6 +29,11 @@ class OnnxYuNetDetector(
     private val inputHeight: Int
 
     init {
+        val assetFileName = kind.assetName.substringAfterLast('/')
+        val bundledModels = context.assets.list("models")?.toList().orEmpty()
+        require(assetFileName in bundledModels) {
+            "Missing model asset '${kind.assetName}'. Bundled models: ${bundledModels.joinToString()}"
+        }
         val modelBytes = context.assets.open(kind.assetName).use { it.readBytes() }
         session = environment.createSession(modelBytes, OrtSession.SessionOptions())
         val inputInfo = session.inputInfo.values.first().info as TensorInfo

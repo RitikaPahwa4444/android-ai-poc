@@ -115,9 +115,21 @@ class MainActivity : ComponentActivity() {
                     result.second
                 )
             }.onFailure { error ->
-                status.text = "Detection failed: ${error.message ?: error.javaClass.simpleName}"
+                status.text = "Detection failed: ${diagnosticMessage(error)}"
             }
         }
+    }
+
+    private fun diagnosticMessage(error: Throwable): String {
+        val messages = buildList {
+            var current: Throwable? = error
+            while (current != null && size < 4) {
+                val detail = current.message?.takeIf { it.isNotBlank() }
+                add(detail ?: current.javaClass.simpleName)
+                current = current.cause
+            }
+        }
+        return messages.joinToString(" → ")
     }
 
     private fun applyRedaction() {
