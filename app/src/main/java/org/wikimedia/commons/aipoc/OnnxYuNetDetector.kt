@@ -11,6 +11,7 @@ import java.nio.FloatBuffer
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -46,16 +47,17 @@ class OnnxYuNetDetector(
 
     /** Detects faces or plates and maps model coordinates back to the source bitmap. */
     fun detect(source: Bitmap): List<Detection> {
-        val input = FloatArray(1 * 3 * inputWidth * inputHeight)
-        val resized = Bitmap.createScaledBitmap(source, inputWidth, inputHeight, true)
+        val (inferenceWidth, inferenceHeight) = inferenceSize(source)
+        val input = FloatArray(1 * 3 * inferenceWidth * inferenceHeight)
+        val resized = Bitmap.createScaledBitmap(source, inferenceWidth, inferenceHeight, true)
         try {
-            val pixels = IntArray(inputWidth * inputHeight)
-            resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
-            val planeSize = inputWidth * inputHeight
-            for (y in 0 until inputHeight) {
-                for (x in 0 until inputWidth) {
-                    val color = pixels[y * inputWidth + x]
-                    val index = y * inputWidth + x
+            val pixels = IntArray(inferenceWidth * inferenceHeight)
+            resized.getPixels(pixels, 0, inferenceWidth, 0, 0, inferenceWidth, inferenceHeight)
+            val planeSize = inferenceWidth * inferenceHeight
+            for (y in 0 until inferenceHeight) {
+                for (x in 0 until inferenceWidth) {
+                    val color = pixels[y * inferenceWidth + x]
+                    val index = y * inferenceWidth + x
                     // OpenCV Zoo models are trained with OpenCV's BGR input convention.
                     // Match OpenCV's FaceDetectorYN/blobFromImage preprocessing:
                     // BGR channels, unchanged 8-bit pixel scale (0..255).
@@ -68,7 +70,7 @@ class OnnxYuNetDetector(
             OnnxTensor.createTensor(
                 environment,
                 FloatBuffer.wrap(input),
-                longArrayOf(1, 3, inputHeight.toLong(), inputWidth.toLong())
+                longArrayOf(1, 3, inferenceHeight.toLong(), inferenceWidth.toLong())
             ).use { tensor ->
                 session.run(mapOf(session.inputNames.first() to tensor)).use { result ->
                     val heads = mutableListOf<Head>()
@@ -79,9 +81,15 @@ class OnnxYuNetDetector(
                         }?.let(heads::add)
                     }
                     return if (kind == DetectorKind.LICENSE_PLATE) {
-                        decodeLicensePlates(heads, source.width, source.height)
+                        decodeLicensePlates(
+                            heads,
+                            source.width,
+                            source.height,
+                            inferenceWidth,
+                            inferenceHeight
+                        )
                     } else {
-                        decodeFaces(heads, source.width, source.height)
+                        decodeFaces(heads, source.width, source.height, inferenceWidth, inferenceHeight)
                     }
                 }
             }
@@ -90,7 +98,13 @@ class OnnxYuNetDetector(
         }
     }
 
-    private fun decodeFaces(heads: List<Head>, sourceWidth: Int, sourceHeight: Int): List<Detection> {
+    private fun decodeFaces(
+        heads: List<Head>,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        modelWidth: Int,
+        modelHeight: Int
+    ): List<Detection> {
         val grouped = heads.associateBy { it.name }
         val detections = mutableListOf<Detection>()
         for (stride in intArrayOf(8, 16, 32)) {
@@ -98,7 +112,7 @@ class OnnxYuNetDetector(
             val obj = find(grouped, "obj_$stride") ?: continue
             val bbox = find(grouped, "bbox_$stride") ?: continue
             val count = min(cls.size, min(obj.size, bbox.size / 4))
-            val gridWidth = (inputWidth + stride - 1) / stride
+            val gridWidth = (modelWidth + stride - 1) / stride
             for (index in 0 until count) {
                 val score = sqrt(probability(cls[index]) * probability(obj[index]))
                 if (score < kind.threshold) continue
@@ -112,10 +126,10 @@ class OnnxYuNetDetector(
                 val left = centerX - width / 2f
                 val top = centerY - height / 2f
                 val box = RectF(
-                    left * sourceWidth / inputWidth,
-                    top * sourceHeight / inputHeight,
-                    (left + width) * sourceWidth / inputWidth,
-                    (top + height) * sourceHeight / inputHeight
+                    left * sourceWidth / modelWidth,
+                    top * sourceHeight / modelHeight,
+                    (left + width) * sourceWidth / modelWidth,
+                    (top + height) * sourceHeight / modelHeight
                 )
                 box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
                 if (box.width() > 1f && box.height() > 1f) {
@@ -139,17 +153,19 @@ class OnnxYuNetDetector(
     private fun decodeLicensePlates(
         heads: List<Head>,
         sourceWidth: Int,
-        sourceHeight: Int
+        sourceHeight: Int,
+        modelWidth: Int,
+        modelHeight: Int
     ): List<Detection> {
         val grouped = heads.associateBy { it.name.lowercase() }
         val loc = findByName(grouped, "loc") ?: return emptyList()
         val conf = findByName(grouped, "conf") ?: return emptyList()
         val iou = findByName(grouped, "iou") ?: return emptyList()
-        val priors = generatePlatePriors()
+        val priors = generatePlatePriors(modelWidth, modelHeight)
         val count = min(priors.size, min(loc.size / 14, min(conf.size / 2, iou.size)))
         val detections = mutableListOf<Detection>()
-        val scaleX = inputWidth.toFloat()
-        val scaleY = inputHeight.toFloat()
+        val scaleX = modelWidth.toFloat()
+        val scaleY = modelHeight.toFloat()
 
         for (index in 0 until count) {
             val classScore = conf[index * 2 + 1].coerceIn(0f, 1f)
@@ -187,7 +203,7 @@ class OnnxYuNetDetector(
         return nonMaximumSuppression(detections)
     }
 
-    private fun generatePlatePriors(): List<PlatePrior> {
+    private fun generatePlatePriors(modelWidth: Int, modelHeight: Int): List<PlatePrior> {
         val minSizes = arrayOf(
             intArrayOf(10, 16, 24),
             intArrayOf(32, 48),
@@ -196,7 +212,7 @@ class OnnxYuNetDetector(
         )
         val steps = intArrayOf(8, 16, 32, 64)
         fun halve(value: Int): Int = value / 2
-        val featureMap2 = intArrayOf(halve((inputHeight + 1) / 2), halve((inputWidth + 1) / 2))
+        val featureMap2 = intArrayOf(halve((modelHeight + 1) / 2), halve((modelWidth + 1) / 2))
         val featureMap3 = intArrayOf(halve(featureMap2[0]), halve(featureMap2[1]))
         val featureMap4 = intArrayOf(halve(featureMap3[0]), halve(featureMap3[1]))
         val featureMap5 = intArrayOf(halve(featureMap4[0]), halve(featureMap4[1]))
@@ -210,16 +226,24 @@ class OnnxYuNetDetector(
                 for (column in 0 until columns) {
                     for (size in minSizes[feature]) {
                         priors += PlatePrior(
-                            cx = (column + 0.5f) * steps[feature] / inputWidth,
-                            cy = (row + 0.5f) * steps[feature] / inputHeight,
-                            width = size.toFloat() / inputWidth,
-                            height = size.toFloat() / inputHeight
+                            cx = (column + 0.5f) * steps[feature] / modelWidth,
+                            cy = (row + 0.5f) * steps[feature] / modelHeight,
+                            width = size.toFloat() / modelWidth,
+                            height = size.toFloat() / modelHeight
                         )
                     }
                 }
             }
         }
         return priors
+    }
+
+    private fun inferenceSize(source: Bitmap): Pair<Int, Int> {
+        if (kind != DetectorKind.LICENSE_PLATE) return inputWidth to inputHeight
+        val longestEdge = max(source.width, source.height)
+        val scale = min(1f, 1280f / longestEdge)
+        return max(1, (source.width * scale).roundToInt()) to
+            max(1, (source.height * scale).roundToInt())
     }
 
     private fun find(heads: Map<String, Head>, expectedName: String): FloatArray? {
