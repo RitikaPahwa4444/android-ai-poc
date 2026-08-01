@@ -1,29 +1,34 @@
 # Commons AI POC
 
-Standalone Android proof of concept for local face and license-plate detection using
-ONNX Runtime Mobile and OpenCV Zoo ONNX model assets.
+Standalone Android proof of concept for local face and license-plate suggestions. It is
+isolated from `apps-android-commons` so model, runtime, and size experiments cannot affect
+the production app.
 
-The app does not import or modify `apps-android-commons`. It is intentionally isolated so
-runtime/model experiments do not affect the production Commons application.
+## Current implementation
 
-The POC targets minSdk 21 and uses ONNX Runtime Android 1.20.0. Published AAR manifests
-for 1.21.x and newer declare API 24, while 1.20.0 was verified to declare API 21. This
-keeps the POC aligned with the production Commons app baseline without using a risky
-`tools:overrideLibrary` manifest override.
+- ONNX Runtime Android 1.20.0; minSdk 21.
+- OpenCV Zoo YuNet face detector.
+- OpenCV Zoo LPD-YuNet license-plate detector.
+- Model-specific ONNX preprocessing and output decoders.
+- Fixed-size overlapping crops for plate detection, mapped back to source coordinates.
+- Manual box dragging/deletion and local pixelation preview.
 
-## What it demonstrates
+The POC uses ONNX Runtime directly and does not bundle OpenCV's full Android DNN runtime.
+The production app should connect validated suggestions to its existing `BlurRegion`/jpegtran
+pipeline rather than reuse this pixelation preview.
 
-- Fully local inference through `com.microsoft.onnxruntime:onnxruntime-android`.
-- Bundled YuNet face and LPD-YuNet license-plate models.
-- Model input preprocessing and multi-head YuNet decoding.
-- Detection boxes mapped back to the displayed image.
-- Dragging and deleting suggested regions.
-- Local pixelation of accepted regions.
-- Runtime latency and model-size reporting in the UI/build output.
+## Model and size summary
 
-The redaction implementation is a POC pixelation preview. The production app should use
-the existing `BlurRegion`/jpegtran implementation after the model and coordinate pipeline
-have been validated.
+| Model | Raw file | Packaged APK measurement |
+|---|---:|---:|
+| Face YuNet | 227 KB | 199 KB |
+| LPD-YuNet int8 | 1.0 MB | 769.4 KB |
+| Both model assets | about 1.25 MB | about 968.4 KB (969.1 KB with metadata) |
+
+The full historical ONNX-versus-TFLite comparison is in
+[`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
+checksums, and upstream licensing are in
+[`app/src/main/assets/models/README.md`](app/src/main/assets/models/README.md).
 
 ## Build and run
 
@@ -35,12 +40,21 @@ Configure an Android SDK in `local.properties` or `ANDROID_HOME`, then run:
 ./gradlew printPocSize
 ```
 
-The bundled models are 227 KB and 4.0 MB. Their SHA-256 values and source are recorded in
-`app/src/main/assets/models/README.md`.
+## Evaluation
 
-## Known limitation
+The pinned evaluation corpus and measurement requirements are documented in
+[`benchmark/README.md`](benchmark/README.md). The app is a benchmark harness, not a complete
+privacy-redaction product: detection recall, false positives, latency, memory, and coordinate
+mapping must be evaluated on real Commons images before integration.
 
-The current decoder assumes the OpenCV Zoo YuNet output-head naming and encoding. The first
-device run should be used to compare detections with the OpenCV reference implementation;
-if a model revision changes output names, the model adapter should reject it with a clear
-error rather than silently producing incorrect boxes.
+## Limitations
+
+- LPD-YuNet was trained primarily on Chinese plates; recall may be poor for other regions.
+- The bundled plate graph has fixed input dimensions, so wide images use overlapping crops.
+- Adding a new model family requires a model adapter for its input/output contract.
+- These models cover faces and plates only; they do not implement the other future AI use cases.
+
+## Licensing
+
+POC application code is MIT-licensed. Model files and reused upstream decoder logic retain
+their own licenses; consult the model README before redistribution.

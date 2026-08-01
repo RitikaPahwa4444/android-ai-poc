@@ -1,9 +1,9 @@
 # Runtime comparison: ONNX POC vs TFLite Tester
 
-This is an initial comparison from Android Studio APK Analyzer screenshots. It is useful for
-direction, but it is not yet a controlled benchmark: the TFLite app originally contained three face models,
-while the ONNX POC contains one face model and one license-plate model. The applications also
-have different UI and dependency code.
+This document combines the original whole-APK comparison with the latest model-only measurements.
+The whole-APK values are historical and not a controlled apples-to-apples benchmark because the
+applications have different UI and dependency code. The model-only values below are the current
+size-first candidates.
 
 ## Observed artifacts
 
@@ -16,7 +16,7 @@ have different UI and dependency code.
 | Model assets, installed | 3.9 MB | 9.6 MB | TFLite +5.7 MB |
 | Model assets, download | 3.9 MB | 7.3 MB | TFLite +3.4 MB |
 
-The TFLite artifact contains these three face models:
+The earlier TFLite artifact contained these three face models:
 
 | Model | Installed size | Download size |
 |---|---:|---:|
@@ -24,7 +24,20 @@ The TFLite artifact contains these three face models:
 | `Lightweight-Face-Detection.tflite` | 3.4 MB | 3.1 MB |
 | `face_det_lite.tflite` | 966.6 KB | 802.3 KB |
 
-The ONNX artifact contains a roughly 0.23 MB face model and a roughly 4.0 MB plate model.
+The latest ONNX APK Analyzer measurement contains approximately 199 KB of face-model assets and
+769.4 KB of plate-model assets, or about 969.1 KB under `assets/models` including metadata.
+
+## Latest model-only comparison
+
+| Task | TFLite model size | ONNX model size | Difference |
+|---|---:|---:|---:|
+| Face detection | 966 KB | 199 KB packaged | ONNX −767 KB |
+| License-plate detection | 1.5 MB | 769.4 KB packaged | ONNX −about 731 KB |
+| Both models | about 2.47 MB | about 969.1 KB packaged | ONNX −about 1.50 MB |
+
+The TFLite plate value is the latest reported measurement and still needs its exact model
+filename, source URL, checksum, license, and input/output contract recorded in the POC before
+it can be reproduced.
 
 ## Size-first candidate set
 
@@ -32,11 +45,11 @@ Use only one model per task; do not bundle unused alternatives:
 
 | Task | TFLite candidate | ONNX candidate | Status |
 |---|---|---|---|
-| Face | `face_det_lite.tflite`, 966.6 KB installed / 802.3 KB download | YuNet, 232.6 KB | Available |
-| License plate | No verified model in `TfliteTester` | LPD-YuNet, 4.0 MB | TFLite candidate needed |
+| Face | `face_det_lite.tflite`, 966 KB reported | YuNet, 199 KB packaged | Available |
+| License plate | Candidate, 1.5 MB reported | LPD-YuNet, 769.4 KB packaged | TFLite provenance needed |
 
-The reported ~1.5 MB TFLite plate model is not present in the current TFLite repository. It
-needs a source URL, checksum, license, input/output contract, and device test before selection.
+The reported 1.5 MB TFLite plate model still needs a source URL, checksum, license, input/output
+contract, and device test before selection.
 
 ## Interpretation
 
@@ -46,7 +59,7 @@ needs a source URL, checksum, license, input/output contract, and device test be
 - The current ONNX face model produced materially better detections in the device tests, but
   size is now the primary selection criterion and that tradeoff must be measured on the pinned
   Supporters corpus.
-- TFLite has not yet been compared with an equivalent plate detector.
+- The ONNX model assets are currently smaller than the reported equivalent TFLite candidates.
 - No final runtime decision should be made from complete APK size alone.
 
 ## Decision gate
