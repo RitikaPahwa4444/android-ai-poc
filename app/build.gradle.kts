@@ -49,9 +49,10 @@ android {
 }
 
 dependencies {
-    // 1.22.0 includes the Android JNI alignment fix needed for 16 KB page-size
-    // devices. Keep this version (or newer) for Play compatibility.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
+    // Locally built ONNX Runtime 1.22.0, reduced to the operators used by the
+    // bundled face and INT8 plate models. The AAR contains both Java classes
+    // and the arm64-v8a libonnxruntime*.so files.
+    implementation(files("libs/onnxruntime-android-1.22.0-reduced.aar"))
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

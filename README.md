@@ -33,6 +33,25 @@ Configure an Android SDK in `local.properties` or `ANDROID_HOME`, then run:
 ./gradlew printPocSize
 ```
 
+## Optional reduced ONNX Runtime build
+
+The checked-in [`tools/reduced_ops.config`](tools/reduced_ops.config) was generated
+from the two models actually used by the app. To reproduce the native build, install
+Git, Python 3, the Android SDK/NDK, and CMake, then run:
+
+```bash
+tools/build_reduced_onnxruntime.sh
+```
+
+The script pins ONNX Runtime `v1.22.0`, creates a temporary Python environment,
+installs the model-analysis dependencies, and builds Java bindings for `arm64-v8a`.
+The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
+works around the stale Eigen archive checksum currently encountered by the upstream
+build. The generated
+`libonnxruntime.so` and `libonnxruntime4j_jni.so` must both be copied to
+`app/src/main/jniLibs/arm64-v8a/` before removing the Maven dependency. Verify the
+release APK, detector behavior, and 16 KB ELF alignment first.
+
 ## Evaluation
 
 The pinned evaluation corpus and measurement requirements are documented in
