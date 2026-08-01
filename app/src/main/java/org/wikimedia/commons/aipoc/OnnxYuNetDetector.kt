@@ -47,7 +47,33 @@ class OnnxYuNetDetector(
 
     /** Detects faces or plates and maps model coordinates back to the source bitmap. */
     fun detect(source: Bitmap): List<Detection> {
-        val (inferenceWidth, inferenceHeight) = inferenceSize(source)
+        val regions = if (kind == DetectorKind.LICENSE_PLATE) {
+            plateRegions(source)
+        } else {
+            listOf(InferenceRegion(0, 0, source.width, source.height))
+        }
+        val detections = regions.flatMap { region ->
+            val crop = Bitmap.createBitmap(source, region.left, region.top, region.width, region.height)
+            try {
+                detectRegion(crop).map { detection ->
+                    detection.copy(
+                        bounds = RectF(detection.bounds).apply {
+                            offset(region.left.toFloat(), region.top.toFloat())
+                        }
+                    )
+                }
+            } finally {
+                crop.recycle()
+            }
+        }
+        return nonMaximumSuppression(detections)
+    }
+
+    private fun detectRegion(source: Bitmap): List<Detection> {
+        // The bundled models have fixed input dimensions. Plate detection gets
+        // more detail through tiled crops rather than an invalid dynamic shape.
+        val inferenceWidth = inputWidth
+        val inferenceHeight = inputHeight
         val input = FloatArray(1 * 3 * inferenceWidth * inferenceHeight)
         val resized = Bitmap.createScaledBitmap(source, inferenceWidth, inferenceHeight, true)
         try {
@@ -238,12 +264,26 @@ class OnnxYuNetDetector(
         return priors
     }
 
-    private fun inferenceSize(source: Bitmap): Pair<Int, Int> {
-        if (kind != DetectorKind.LICENSE_PLATE) return inputWidth to inputHeight
-        val longestEdge = max(source.width, source.height)
-        val scale = min(1f, 1280f / longestEdge)
-        return max(1, (source.width * scale).roundToInt()) to
-            max(1, (source.height * scale).roundToInt())
+    private fun plateRegions(source: Bitmap): List<InferenceRegion> {
+        val targetAspect = inputWidth.toFloat() / inputHeight
+        val sourceAspect = source.width.toFloat() / source.height
+        if (sourceAspect <= targetAspect) {
+            val cropHeight = min(source.height, (source.width / targetAspect).roundToInt())
+            return slidingRegions(source.height, cropHeight).map {
+                InferenceRegion(0, it, source.width, cropHeight)
+            }
+        }
+
+        val cropWidth = min(source.width, (source.height * targetAspect).roundToInt())
+        return slidingRegions(source.width, cropWidth).map {
+            InferenceRegion(it, 0, cropWidth, source.height)
+        }
+    }
+
+    private fun slidingRegions(total: Int, window: Int): List<Int> {
+        if (window >= total) return listOf(0)
+        val last = total - window
+        return listOf(0, last / 2, last).distinct()
     }
 
     private fun find(heads: Map<String, Head>, expectedName: String): FloatArray? {
@@ -295,5 +335,12 @@ class OnnxYuNetDetector(
         val cy: Float,
         val width: Float,
         val height: Float
+    )
+
+    private data class InferenceRegion(
+        val left: Int,
+        val top: Int,
+        val width: Int,
+        val height: Int
     )
 }
