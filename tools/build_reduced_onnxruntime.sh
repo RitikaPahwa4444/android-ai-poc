@@ -14,7 +14,7 @@ SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/Users/Shared/Library/Android/sdk}}
 NDK_DIR="${ANDROID_NDK_HOME:-${SDK_DIR}/ndk/28.2.13676358}"
 CMAKE_DIR="${CMAKE_DIR:-${SDK_DIR}/cmake/4.1.2}"
 PY_ENV="${PY_ENV:-${TMPDIR:-/tmp}/ort-venv}"
-OPS_CONFIG="${ROOT_DIR}/commons-ai/tools/reduced_ops.config"
+OPS_CONFIG="${ROOT_DIR}/tools/reduced_ops.config"
 EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
 EIGEN_DIR="${EIGEN_DIR:-${TMPDIR:-/tmp}/eigen-${EIGEN_COMMIT}}"
 
