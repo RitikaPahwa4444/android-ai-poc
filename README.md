@@ -48,6 +48,8 @@ tools/build_reduced_onnxruntime.sh
 
 The script pins ONNX Runtime `v1.22.0`, creates a temporary Python environment,
 installs the model-analysis dependencies, and builds Java bindings for `arm64-v8a`.
+It intentionally uses a reduced-operator build without `--minimal_build`, because
+the app loads ONNX files directly; minimal builds require ORT-format model files.
 The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
