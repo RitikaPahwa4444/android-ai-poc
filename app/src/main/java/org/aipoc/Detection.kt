@@ -17,10 +17,10 @@ enum class DetectorKind(
     val inputHeight: Int,
     val threshold: Float
 ) {
-    FACE("face", "models/face_detection_yunet_2023mar.onnx", 320, 320, 0.55f),
+    FACE("face", "models/face_detection_yunet_2023mar.ort", 320, 320, 0.55f),
     LICENSE_PLATE(
         "license plate",
-        "models/license_plate_detection_lpd_yunet_2023mar_int8.onnx",
+        "models/license_plate_detection_lpd_yunet_2023mar_int8.ort",
         320,
         240,
         0.45f

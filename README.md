@@ -35,11 +35,11 @@ Configure an Android SDK in `local.properties` or `ANDROID_HOME`, then run:
 
 ## Optional reduced ONNX Runtime build
 
-The checked-in [`tools/reduced_ops.config`](tools/reduced_ops.config) covers the two
-active models plus the bundled full-precision plate variant. The build script
-regenerates it from every `.onnx` file under `app/src/main/assets/models`, preventing
-the runtime from failing if the full-precision plate asset is selected during testing.
-To reproduce the native build, install
+The app loads ORT-format versions of the three bundled ONNX models. The ONNX files are
+the source models; conversion preserves their graphs while saving optimization results
+for a smaller mobile runtime. The build script regenerates the operator config from
+the `.ort` files and copies the resulting AAR into `app/libs`. To reproduce the native
+build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 
 ```bash
@@ -48,8 +48,7 @@ tools/build_reduced_onnxruntime.sh
 
 The script pins ONNX Runtime `v1.22.0`, creates a temporary Python environment,
 installs the model-analysis dependencies, and builds Java bindings for `arm64-v8a`.
-It intentionally uses a reduced-operator build without `--minimal_build`, because
-the app loads ONNX files directly; minimal builds require ORT-format model files.
+It uses the official `--minimal_build` flow because the app loads ORT-format files.
 The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated

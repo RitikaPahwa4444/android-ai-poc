@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Build the Java-enabled, arm64-only ONNX Runtime used by this POC.
-# The app loads ONNX files directly, so this is a reduced-operator build rather
-# than a minimal build; minimal builds require ORT-format model files.
+# The app loads ORT-format files, so the official minimal build is applicable.
 # The script intentionally does not modify Gradle dependencies or copy files
 # into the app; inspect/verify the output first, then run the copy commands
 # printed at the end.
@@ -32,18 +31,8 @@ fi
 python3 -m venv "${PY_ENV}"
 "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10'
 
-# Regenerate from every bundled graph. The app currently selects the INT8 plate
-# graph, but keeping the full-precision graph supported prevents a runtime error
-# if that asset is selected during testing or later becomes the default.
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
-  "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
-
-# Graph optimization can fuse Conv nodes into this contrib kernel at runtime;
-# it is not present in the original ONNX graph, so preserve it after generation.
-sed -i.bak 's/^com\.microsoft;1;.*/com.microsoft;1;FusedConv,QLinearConcat,QLinearSoftmax/' "${OPS_CONFIG}"
-rm -f "${OPS_CONFIG}.bak"
-sed -i.bak 's/^ai\.onnx;13;/ai.onnx;13;Split,/' "${OPS_CONFIG}"
-rm -f "${OPS_CONFIG}.bak"
+  --format ORT "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
 
 if [[ ! -d "${EIGEN_DIR}" ]]; then
   git clone --filter=blob:none --no-checkout \
@@ -60,6 +49,7 @@ BUILD_ARGS=( \
   --android_ndk_path="${NDK_DIR}" \
   --cmake_path="${CMAKE_DIR}/bin/cmake" \
   --ctest_path="${CMAKE_DIR}/bin/ctest" \
+  --minimal_build \
   --include_ops_by_config="${OPS_CONFIG}" \
   --build_java \
   --target onnxruntime4j_jni \
@@ -73,5 +63,7 @@ PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" "${BUILD_ARGS[@]}"
 
 echo "Build complete. Locate the libraries with:"
 find "${ORT_DIR}/build/Android" -type f \( -name 'libonnxruntime.so' -o -name 'libonnxruntime4j_jni.so' \) -print
-echo "Copy both arm64-v8a libraries into:"
-echo "${ROOT_DIR}/app/src/main/jniLibs/arm64-v8a/"
+AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
+AAR_DEST="${ROOT_DIR}/app/libs/onnxruntime-android-1.22.0-reduced.aar"
+cp "${AAR_SOURCE}" "${AAR_DEST}"
+echo "Copied reduced AAR to: ${AAR_DEST}"
