@@ -22,8 +22,9 @@ pipeline rather than reuse this pixelation preview.
 | Model | Raw file | Packaged APK measurement |
 |---|---:|---:|
 | Face YuNet | 227 KB | 199 KB |
-| LPD-YuNet full precision | about 4.0 MB | measure from release APK |
-| Both model assets | about 4.2 MB raw | measure from release APK |
+| LPD-YuNet full precision (active) | about 4.0 MB | measure from release APK |
+| LPD-YuNet int8 (benchmark candidate) | about 1.0 MB | measure from release APK |
+| Both models plus both plate variants | about 5.2 MB raw | measure from release APK |
 
 The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
