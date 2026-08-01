@@ -1,4 +1,4 @@
-package org.wikimedia.commons.aipoc
+package org.aipoc
 
 import android.app.Activity
 import android.content.Intent

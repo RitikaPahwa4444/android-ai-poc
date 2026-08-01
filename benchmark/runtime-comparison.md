@@ -9,11 +9,11 @@ still needs provenance before it can be reproduced.
 | Task | TFLite model size | ONNX model size | Difference |
 |---|---:|---:|---:|
 | Face detection | 966 KB | 199 KB packaged | ONNX −767 KB |
-| License-plate detection | 1.5 MB | 769.4 KB packaged | ONNX −about 731 KB |
-| Both models | about 2.47 MB | about 968.4 KB packaged | ONNX −about 1.50 MB |
+| License-plate detection | 1.5 MB | about 4.0 MB raw | TFLite −about 2.5 MB |
+| Both models | about 2.47 MB | about 4.2 MB raw | TFLite −about 1.7 MB |
 
-The ONNX APK Analyzer showed approximately 969.1 KB under `assets/models` when model metadata
-is included. The model files themselves account for approximately 968.4 KB.
+The ONNX values now use the full-precision LPD-YuNet model because it gave materially better
+plate results. Packaged APK size must be re-measured from the next release build.
 
 ## Runtime measurements
 
@@ -32,14 +32,15 @@ Use only one model per task; do not bundle unused alternatives:
 | Task | TFLite candidate | ONNX candidate | Status |
 |---|---|---|---|
 | Face | `face_det_lite.tflite`, 966 KB reported | YuNet, 199 KB packaged | Available |
-| License plate | Candidate, 1.5 MB reported | LPD-YuNet, 769.4 KB packaged | TFLite provenance needed |
+| License plate | Candidate, 1.5 MB reported | LPD-YuNet, about 4.0 MB raw | TFLite provenance needed |
 
 The reported 1.5 MB TFLite plate model still needs a source URL, checksum, license, input/output
 contract, and device test before selection.
 
 ## Interpretation
 
-- The reported ONNX model pair is approximately 1.50 MB smaller than the reported TFLite pair.
+- The full-precision ONNX plate model is larger than the reported TFLite candidate, but currently
+  gives materially better plate results than the quantized model.
 - These runtime values are not a controlled single-model APK comparison; the applications used
   different dependency and packaging configurations.
 - The current ONNX face model produced materially better detections in the device tests, but

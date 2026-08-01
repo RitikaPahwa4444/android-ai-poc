@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "org.wikimedia.commons.aipoc"
+    namespace = "org.aipoc"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.wikimedia.commons.aipoc"
+        applicationId = "org.aipoc"
         // ONNX Runtime Android 1.20.0 is the newest version verified here with API 21.
         minSdk = 21
         targetSdk = 36

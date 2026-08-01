@@ -1,4 +1,4 @@
-package org.wikimedia.commons.aipoc
+package org.aipoc
 
 import android.content.Context
 import android.graphics.Bitmap
