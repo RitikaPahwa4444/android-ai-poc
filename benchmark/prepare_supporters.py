@@ -23,6 +23,15 @@ ROOT = Path(__file__).resolve().parent
 MANIFEST = ROOT / "supporters" / "manifest.csv"
 IMAGE_DIR = ROOT / "images"
 DEFAULT_WIDTH = 1600
+FIELDNAMES = [
+    "file_name",
+    "source_url",
+    "file_page_url",
+    "download_width",
+    "sha256",
+    "commons_revision",
+    "notes",
+]
 
 
 def sha256(path: Path) -> str:
@@ -79,6 +88,9 @@ def main() -> int:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     with MANIFEST.open(newline="") as source:
         rows = list(csv.DictReader(source))
+    for row in rows:
+        row.setdefault("download_width", "")
+        row["download_width"] = str(args.width)
 
     for index, row in enumerate(rows):
         target = IMAGE_DIR / row["file_name"]
@@ -93,7 +105,7 @@ def main() -> int:
 
         # Persist after every file so an interrupted or rate-limited run is resumable.
         with MANIFEST.open("w", newline="") as destination:
-            writer = csv.DictWriter(destination, fieldnames=rows[0].keys())
+            writer = csv.DictWriter(destination, fieldnames=FIELDNAMES)
             writer.writeheader()
             writer.writerows(rows)
 

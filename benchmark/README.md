@@ -9,7 +9,7 @@ the live category remaining unchanged.
 
 1. Run `python3 benchmark/prepare_supporters.py` from the repository root.
 2. The script downloads 1600-pixel-wide copies under `benchmark/images/`; that directory is ignored by Git.
-3. The script records each downloaded file's SHA-256 in the manifest.
+3. The script records each downloaded file's width and SHA-256 in the manifest.
 4. Record the Commons file-page revision used for the download.
 5. Obtain ground-truth boxes in COCO-style JSON with these classes only:
    `face` and `license_plate`.

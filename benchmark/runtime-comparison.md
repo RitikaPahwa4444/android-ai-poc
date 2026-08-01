@@ -1,7 +1,7 @@
 # Runtime comparison: ONNX POC vs TFLite Tester
 
 This is an initial comparison from Android Studio APK Analyzer screenshots. It is useful for
-direction, but it is not yet a controlled benchmark: the TFLite app contains three face models,
+direction, but it is not yet a controlled benchmark: the TFLite app originally contained three face models,
 while the ONNX POC contains one face model and one license-plate model. The applications also
 have different UI and dependency code.
 
@@ -26,20 +26,33 @@ The TFLite artifact contains these three face models:
 
 The ONNX artifact contains a roughly 0.23 MB face model and a roughly 4.0 MB plate model.
 
+## Size-first candidate set
+
+Use only one model per task; do not bundle unused alternatives:
+
+| Task | TFLite candidate | ONNX candidate | Status |
+|---|---|---|---|
+| Face | `face_det_lite.tflite`, 966.6 KB installed / 802.3 KB download | YuNet, 232.6 KB | Available |
+| License plate | No verified model in `TfliteTester` | LPD-YuNet, 4.0 MB | TFLite candidate needed |
+
+The reported ~1.5 MB TFLite plate model is not present in the current TFLite repository. It
+needs a source URL, checksum, license, input/output contract, and device test before selection.
+
 ## Interpretation
 
 - TFLite's native runtime is smaller in this comparison.
 - The ONNX POC is smaller overall because it contains fewer/smaller model assets and less
   surrounding application code.
 - The current ONNX face model produced materially better detections in the device tests, but
-  that observation must be measured on the pinned Supporters corpus.
+  size is now the primary selection criterion and that tradeoff must be measured on the pinned
+  Supporters corpus.
 - TFLite has not yet been compared with an equivalent plate detector.
 - No final runtime decision should be made from complete APK size alone.
 
 ## Decision gate
 
-Run both runtimes on the same 27-image corpus and the same device. Record recall, precision,
-false positives, p50/p95 latency, peak memory, and decomposed runtime/model sizes. Prefer TFLite
-only if its accuracy remains acceptable and its runtime-size advantage is meaningful. Prefer ONNX
-if its recall advantage remains substantial for faces or plates; missing a sensitive object is
-more serious than a moderate runtime-size increase.
+Run the minimal face candidates and minimal plate candidates on the same 27-image corpus and the
+same device. Record recall, precision, false positives, p50/p95 latency, peak memory, and
+decomposed runtime/model sizes. Choose the smallest candidate that passes the minimum recall
+safety gate. Reject a candidate only when it misses too many sensitive objects, even if it is
+smaller.
