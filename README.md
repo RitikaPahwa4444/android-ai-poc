@@ -7,14 +7,14 @@ Android library for local face and license-plate suggestions, with a standalone 
 
 ## Library structure
 
-The Maven-publishable library is composed of small internal modules:
+The Maven-publishable `commons-ai` library is composed of small internal modules:
 
 - `common`: immutable detection values and shared options.
 - `runtime`: the ONNX Runtime boundary and model-session lifecycle.
-- `vision`: face and plate detector APIs plus the YuNet implementation.
+- `vision`: face and plate detector APIs plus the YuNet implementation (assembled by `commons-ai`).
 - `app`: demo UI, manual review, and the ajpegtran-facing redaction integration.
 
-Consumers depend only on `commons-ai` and use the stable factory API:
+Consumers depend only on `org.commons:commons-ai:0.1.0` and use the stable factory API:
 
 ```kotlin
 val faces = CommonsVision.faceDetector(context)
