@@ -1,7 +1,8 @@
 # Bundled POC models
 
-These models are downloaded from the OpenCV Zoo model directories and are included only
-in the standalone POC so that benchmarks are reproducible.
+These models are downloaded from the OpenCV Zoo model directories. The original ONNX
+files are preserved in `tools/source_models/`; the app packages only their converted
+ORT files in this directory so the APK does not contain duplicate model data.
 
 | Model | Size | SHA-256 |
 |---|---:|---|

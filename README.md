@@ -37,8 +37,10 @@ of `core-for-system-modules.jar`. Then run:
 
 ## Optional reduced ONNX Runtime build
 
-The app loads ORT-format versions of the three bundled ONNX models. The ONNX files are
-the source models; conversion preserves their graphs while saving optimization results
+The app loads ORT-format versions of the three source ONNX models. The original ONNX
+files are preserved under `tools/source_models/` for provenance, while only the
+converted `.ort` files under `app/src/main/assets/models/` are packaged. Conversion
+preserves their graphs while saving optimization results
 for a smaller mobile runtime. The build script regenerates the operator config from
 the `.ort` files and copies the resulting AAR into `app/libs`. To reproduce the native
 build, install
