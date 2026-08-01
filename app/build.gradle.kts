@@ -9,8 +9,8 @@ android {
 
     defaultConfig {
         applicationId = "org.aipoc"
-        // Keep API 21 support for the standalone POC.
-        minSdk = 21
+        // ORT 1.22.0 requires API 24; do not override the library manifest.
+        minSdk = 24
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
