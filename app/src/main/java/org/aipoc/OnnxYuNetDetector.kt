@@ -3,6 +3,7 @@ package org.aipoc
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.RectF
+import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
@@ -46,7 +47,7 @@ class OnnxYuNetDetector(
     }
 
     /** Detects faces or plates and maps model coordinates back to the source bitmap. */
-    fun detect(source: Bitmap): List<Detection> {
+    fun detect(source: Bitmap, threshold: Float = kind.threshold): List<Detection> {
         val regions = if (kind == DetectorKind.LICENSE_PLATE) {
             plateRegions(source)
         } else {
@@ -55,7 +56,7 @@ class OnnxYuNetDetector(
         val detections = regions.flatMap { region ->
             val crop = Bitmap.createBitmap(source, region.left, region.top, region.width, region.height)
             try {
-                detectRegion(crop).map { detection ->
+                detectRegion(crop, threshold).map { detection ->
                     detection.copy(
                         bounds = RectF(detection.bounds).apply {
                             offset(region.left.toFloat(), region.top.toFloat())
@@ -71,7 +72,7 @@ class OnnxYuNetDetector(
         return nonMaximumSuppression(detections)
     }
 
-    private fun detectRegion(source: Bitmap): List<Detection> {
+    private fun detectRegion(source: Bitmap, threshold: Float): List<Detection> {
         // The bundled models have fixed input dimensions. Plate detection gets
         // more detail through tiled crops rather than an invalid dynamic shape.
         val inferenceWidth = inputWidth
@@ -104,16 +105,20 @@ class OnnxYuNetDetector(
                     val outputs = session.outputNames.mapIndexedNotNull { index, name ->
                         (result[index] as? OnnxTensor)?.let { Output(name, it.readFloatArray()) }
                     }
+                    if (kind == DetectorKind.LICENSE_PLATE) {
+                        Log.d("PlateDetector", "ONNX outputs: ${outputs.joinToString { "${it.name}=${it.size}" }}, threshold=$threshold")
+                    }
                     return if (kind == DetectorKind.LICENSE_PLATE) {
                         decodeLicensePlates(
                             outputs,
                             source.width,
                             source.height,
                             inferenceWidth,
-                            inferenceHeight
+                            inferenceHeight,
+                            threshold
                         )
                     } else {
-                        decodeFaces(outputs, source.width, source.height, inferenceWidth, inferenceHeight)
+                        decodeFaces(outputs, source.width, source.height, inferenceWidth, inferenceHeight, threshold)
                     }
                 }
             }
@@ -127,7 +132,8 @@ class OnnxYuNetDetector(
         sourceWidth: Int,
         sourceHeight: Int,
         modelWidth: Int,
-        modelHeight: Int
+        modelHeight: Int,
+        threshold: Float
     ): List<Detection> {
         val grouped = outputs.associateBy { it.name }
         val detections = mutableListOf<Detection>()
@@ -139,7 +145,7 @@ class OnnxYuNetDetector(
             val gridWidth = (modelWidth + stride - 1) / stride
             for (index in 0 until count) {
                 val score = sqrt(probability(cls[index]) * probability(obj[index]))
-                if (score < kind.threshold) continue
+                if (score < threshold) continue
                 val gridX = index % gridWidth
                 val gridY = index / gridWidth
                 val offset = index * 4
@@ -179,7 +185,8 @@ class OnnxYuNetDetector(
         sourceWidth: Int,
         sourceHeight: Int,
         modelWidth: Int,
-        modelHeight: Int
+        modelHeight: Int,
+        threshold: Float
     ): List<Detection> {
         val grouped = outputs.associateBy { it.name.lowercase() }
         val loc = grouped["loc"] ?: return emptyList()
@@ -188,6 +195,15 @@ class OnnxYuNetDetector(
         val priors = generatePlatePriors(modelWidth, modelHeight)
         val count = min(priors.size, min(loc.size / 14, min(conf.size / 2, iou.size)))
         val detections = mutableListOf<Detection>()
+        val topScores = (0 until count)
+            .map { index ->
+                val classScore = conf[index * 2 + 1].coerceIn(0f, 1f)
+                val iouScore = iou[index].coerceIn(0f, 1f)
+                sqrt(classScore * iouScore)
+            }
+            .sortedDescending()
+            .take(5)
+        Log.d("PlateDetector", "ONNX plate candidates=$count, topScores=$topScores, threshold=$threshold")
         val scaleX = modelWidth.toFloat()
         val scaleY = modelHeight.toFloat()
 
@@ -195,7 +211,7 @@ class OnnxYuNetDetector(
             val classScore = conf[index * 2 + 1].coerceIn(0f, 1f)
             val iouScore = iou[index].coerceIn(0f, 1f)
             val score = sqrt(classScore * iouScore)
-            if (score < kind.threshold) continue
+            if (score < threshold) continue
 
             val prior = priors[index]
             val offset = index * 14

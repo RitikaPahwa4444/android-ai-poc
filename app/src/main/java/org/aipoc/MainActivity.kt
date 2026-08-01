@@ -16,6 +16,7 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.SeekBar
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
@@ -33,6 +34,8 @@ class MainActivity : ComponentActivity() {
     private var bitmap: Bitmap? = null
     private var faceDetector: OnnxYuNetDetector? = null
     private var plateDetector: OnnxYuNetDetector? = null
+    private var threshold = 0.5f
+    private lateinit var thresholdLabel: TextView
 
     private val openImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { loadImage(it) }
@@ -65,6 +68,25 @@ class MainActivity : ComponentActivity() {
 
         status = TextView(this).apply { setPadding(0, 8, 0, 8) }
         root.addView(status, LinearLayout.LayoutParams(-1, -2))
+
+        thresholdLabel = TextView(this).apply {
+            text = "Confidence threshold: 50%"
+            setPadding(0, 8, 0, 0)
+        }
+        root.addView(thresholdLabel, LinearLayout.LayoutParams(-1, -2))
+        val thresholdSeekBar = SeekBar(this).apply {
+            max = 95
+            progress = 50
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar, value: Int, fromUser: Boolean) {
+                    threshold = (value.coerceAtLeast(5) / 100f)
+                    thresholdLabel.text = "Confidence threshold: ${(threshold * 100).toInt()}%"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar) { if (bitmap != null) detect() }
+            })
+        }
+        root.addView(thresholdSeekBar, LinearLayout.LayoutParams(-1, -2))
 
         val imageFrame = object : android.widget.FrameLayout(this) {}
         imageView = ImageView(this).apply {
@@ -100,8 +122,8 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 withContext(Dispatchers.Default) {
                     val started = System.nanoTime()
-                    val faces = getFaceDetector().detect(source)
-                    val plates = getPlateDetector().detect(source)
+                    val faces = getFaceDetector().detect(source, threshold)
+                    val plates = getPlateDetector().detect(source, threshold)
                     Pair(faces + plates, (System.nanoTime() - started) / 1_000_000)
                 }
             }.onSuccess { result ->
