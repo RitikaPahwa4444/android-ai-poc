@@ -25,6 +25,12 @@ fi
 python3 -m venv "${PY_ENV}"
 "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10'
 
+# Regenerate from every bundled graph. The app currently selects the INT8 plate
+# graph, but keeping the full-precision graph supported prevents a runtime error
+# if that asset is selected during testing or later becomes the default.
+"${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
+  "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
+
 if [[ ! -d "${EIGEN_DIR}" ]]; then
   git clone --filter=blob:none --no-checkout \
     https://gitlab.com/libeigen/eigen.git "${EIGEN_DIR}"

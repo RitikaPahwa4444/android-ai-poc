@@ -35,8 +35,11 @@ Configure an Android SDK in `local.properties` or `ANDROID_HOME`, then run:
 
 ## Optional reduced ONNX Runtime build
 
-The checked-in [`tools/reduced_ops.config`](tools/reduced_ops.config) was generated
-from the two models actually used by the app. To reproduce the native build, install
+The checked-in [`tools/reduced_ops.config`](tools/reduced_ops.config) covers the two
+active models plus the bundled full-precision plate variant. The build script
+regenerates it from every `.onnx` file under `app/src/main/assets/models`, preventing
+the runtime from failing if the full-precision plate asset is selected during testing.
+To reproduce the native build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 
 ```bash
