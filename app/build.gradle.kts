@@ -14,6 +14,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
+
+        // Google Play APK upload: ship only the production phone/tablet ABI.
+        // This excludes x86 emulator libraries and older 32-bit ARM binaries.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
