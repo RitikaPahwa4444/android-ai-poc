@@ -25,7 +25,7 @@ pipeline rather than reuse this pixelation preview.
 | LPD-YuNet int8 | 1.0 MB | 769.4 KB |
 | Both model assets | about 1.25 MB | about 968.4 KB (969.1 KB with metadata) |
 
-The full historical ONNX-versus-TFLite comparison is in
+The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
 checksums, and upstream licensing are in
 [`app/src/main/assets/models/README.md`](app/src/main/assets/models/README.md).
