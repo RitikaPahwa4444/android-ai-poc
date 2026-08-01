@@ -73,7 +73,7 @@ files are preserved under `tools/source_models/` for provenance, while only the
 converted `.ort` files under `vision/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
 for a smaller mobile runtime. The build script regenerates the operator config from
-the `.ort` files and copies the resulting AAR into `app/libs`. To reproduce the native
+the `.ort` files and copies the resulting AAR into `runtime`. To reproduce the native
 build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 

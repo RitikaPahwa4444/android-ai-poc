@@ -32,7 +32,7 @@ python3 -m venv "${PY_ENV}"
 "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10'
 
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
-  --format ORT "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
+  --format ORT "${ROOT_DIR}/vision/src/main/assets/models" "${OPS_CONFIG}"
 sed -i.bak '/^#/d' "${OPS_CONFIG}"
 rm -f "${OPS_CONFIG}.bak"
 
@@ -66,6 +66,6 @@ PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" "${BUILD_ARGS[@]}"
 echo "Build complete. Locate the libraries with:"
 find "${ORT_DIR}/build/Android" -type f \( -name 'libonnxruntime.so' -o -name 'libonnxruntime4j_jni.so' \) -print
 AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
-AAR_DEST="${ROOT_DIR}/app/libs/onnxruntime-android-1.22.0-reduced.aar"
+AAR_DEST="${ROOT_DIR}/runtime/onnxruntime-android-1.22.0-reduced.aar"
 cp "${AAR_SOURCE}" "${AAR_DEST}"
 echo "Copied reduced AAR to: ${AAR_DEST}"
