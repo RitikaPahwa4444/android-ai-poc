@@ -25,7 +25,7 @@ publishing {
     publications {
         register<MavenPublication>("release") {
             groupId = "org.commons"
-            artifactId = "commons-ai-vision"
+            artifactId = "commons-ai"
             version = "0.1.0"
             afterEvaluate { from(components["release"]) }
         }
