@@ -1,9 +1,30 @@
-# Android face and license plate detector POC
+# Commons AI Android library and demo
 
-Standalone Android proof of concept for local face and license-plate suggestions. Built to understand impact on app size.  
+Android library for local face and license-plate suggestions, with a standalone demo app.
 
 <img width="277" height="606" alt="Screenshot 2026-08-01 at 8 05 44 PM" src="https://github.com/user-attachments/assets/44973050-9f46-48e8-b568-ecf62b20530a" />
 
+
+## Library structure
+
+The Maven-publishable library is split into small modules:
+
+- `common`: immutable detection values and shared options.
+- `runtime`: the ONNX Runtime boundary and model-session lifecycle.
+- `vision`: face and plate detector APIs plus the YuNet implementation.
+- `app`: demo UI, manual review, and the ajpegtran-facing redaction integration.
+
+Consumers depend on `commons-ai-vision` and use the stable factory API:
+
+```kotlin
+val faces = CommonsVision.faceDetector(context)
+val plates = CommonsVision.plateDetector(context)
+val options = DetectionOptions(confidenceThreshold = 0.5f)
+val detections = faces.detect(bitmap, options)
+```
+
+`Detection.bounds` are axis-aligned pixel coordinates in the supplied bitmap.
+The library does not depend on ajpegtran and does not apply blur or pixelation.
 
 ## Current implementation
 
@@ -21,7 +42,7 @@ pipeline rather than reuse this pixelation preview.
 The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
 checksums, and upstream licensing are in
-[`app/src/main/assets/models/README.md`](app/src/main/assets/models/README.md).
+[`vision/src/main/assets/models/README.md`](vision/src/main/assets/models/README.md).
 
 ## Build and run
 
@@ -35,11 +56,21 @@ of `core-for-system-modules.jar`. Then run:
 ./gradlew printPocSize
 ```
 
+The library release artifacts can be published with:
+
+```bash
+./gradlew publish
+```
+
+The modules use Maven coordinates under `org.commons` and version `0.1.0`;
+configure a repository, signing, and release version in CI before publishing to
+Maven Central.
+
 ## Optional reduced ONNX Runtime build
 
 The app loads ORT-format versions of the three source ONNX models. The original ONNX
 files are preserved under `tools/source_models/` for provenance, while only the
-converted `.ort` files under `app/src/main/assets/models/` are packaged. Conversion
+converted `.ort` files under `vision/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
 for a smaller mobile runtime. The build script regenerates the operator config from
 the `.ort` files and copies the resulting AAR into `app/libs`. To reproduce the native

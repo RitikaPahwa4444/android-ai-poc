@@ -18,7 +18,7 @@ android {
 
 dependencies {
     api(project(":common"))
-    api(project(":runtime"))
+    implementation(project(":runtime"))
 }
 
 publishing {
