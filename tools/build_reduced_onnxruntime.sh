@@ -38,6 +38,11 @@ python3 -m venv "${PY_ENV}"
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
   "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
 
+# Graph optimization can fuse Conv nodes into this contrib kernel at runtime;
+# it is not present in the original ONNX graph, so preserve it after generation.
+sed -i.bak 's/^com\.microsoft;1;.*/com.microsoft;1;FusedConv,QLinearConcat,QLinearSoftmax/' "${OPS_CONFIG}"
+rm -f "${OPS_CONFIG}.bak"
+
 if [[ ! -d "${EIGEN_DIR}" ]]; then
   git clone --filter=blob:none --no-checkout \
     https://gitlab.com/libeigen/eigen.git "${EIGEN_DIR}"
