@@ -42,6 +42,8 @@ python3 -m venv "${PY_ENV}"
 # it is not present in the original ONNX graph, so preserve it after generation.
 sed -i.bak 's/^com\.microsoft;1;.*/com.microsoft;1;FusedConv,QLinearConcat,QLinearSoftmax/' "${OPS_CONFIG}"
 rm -f "${OPS_CONFIG}.bak"
+sed -i.bak 's/^ai\.onnx;13;/ai.onnx;13;Split,/' "${OPS_CONFIG}"
+rm -f "${OPS_CONFIG}.bak"
 
 if [[ ! -d "${EIGEN_DIR}" ]]; then
   git clone --filter=blob:none --no-checkout \
