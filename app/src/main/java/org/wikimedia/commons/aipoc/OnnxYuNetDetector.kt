@@ -312,7 +312,10 @@ class OnnxYuNetDetector(
         FloatArray(buffer.remaining()).also(buffer::get)
     }
 
-    private data class Output(val name: String, val values: FloatArray)
+    private data class Output(val name: String, private val values: FloatArray) {
+        val size: Int get() = values.size
+        operator fun get(index: Int): Float = values[index]
+    }
 
     private data class PlatePrior(
         val cx: Float,
