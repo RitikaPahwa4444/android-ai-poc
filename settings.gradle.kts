@@ -18,7 +18,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "commons-ai"
 include(":app")
-include(":common")
-include(":runtime")
-include(":vision")
 include(":commons-ai")
+include(":commons-ai:common")
+include(":commons-ai:runtime")
+include(":commons-ai:vision")

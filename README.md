@@ -42,7 +42,7 @@ pipeline rather than reuse this pixelation preview.
 The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
 checksums, and upstream licensing are in
-[`vision/src/main/assets/models/README.md`](vision/src/main/assets/models/README.md).
+[`commons-ai/vision/src/main/assets/models/README.md`](commons-ai/vision/src/main/assets/models/README.md).
 
 ## Build and run
 
@@ -69,8 +69,8 @@ Maven Central.
 ## Optional reduced ONNX Runtime build
 
 The app loads ORT-format versions of the three source ONNX models. The original ONNX
-files are preserved under `tools/source_models/` for provenance, while only the
-converted `.ort` files under `vision/src/main/assets/models/` are packaged. Conversion
+files are preserved under `commons-ai/tools/source_models/` for provenance, while only the
+converted `.ort` files under `commons-ai/vision/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
 for a smaller mobile runtime. The build script regenerates the operator config from
 the `.ort` files and copies the resulting AAR into `runtime`. To reproduce the native
@@ -78,7 +78,7 @@ build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 
 ```bash
-tools/build_reduced_onnxruntime.sh
+commons-ai/tools/build_reduced_onnxruntime.sh
 ```
 
 The script pins ONNX Runtime `v1.22.0`, creates a temporary Python environment,

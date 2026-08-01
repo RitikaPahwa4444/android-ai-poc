@@ -15,6 +15,6 @@ android {
 }
 
 dependencies {
-    api(project(":common"))
-    implementation(project(":runtime"))
+    api(project(":commons-ai:common"))
+    implementation(project(":commons-ai:runtime"))
 }

@@ -7,14 +7,14 @@ set -euo pipefail
 # into the app; inspect/verify the output first, then run the copy commands
 # printed at the end.
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"
 ORT_DIR="${ORT_DIR:-${TMPDIR:-/tmp}/onnxruntime-${ORT_VERSION}}"
 SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/Users/Shared/Library/Android/sdk}}"
 NDK_DIR="${ANDROID_NDK_HOME:-${SDK_DIR}/ndk/28.2.13676358}"
 CMAKE_DIR="${CMAKE_DIR:-${SDK_DIR}/cmake/4.1.2}"
 PY_ENV="${PY_ENV:-${TMPDIR:-/tmp}/ort-venv}"
-OPS_CONFIG="${ROOT_DIR}/tools/reduced_ops.config"
+OPS_CONFIG="${ROOT_DIR}/commons-ai/tools/reduced_ops.config"
 EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
 EIGEN_DIR="${EIGEN_DIR:-${TMPDIR:-/tmp}/eigen-${EIGEN_COMMIT}}"
 
@@ -32,7 +32,7 @@ python3 -m venv "${PY_ENV}"
 "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10'
 
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
-  --format ORT "${ROOT_DIR}/vision/src/main/assets/models" "${OPS_CONFIG}"
+  --format ORT "${ROOT_DIR}/commons-ai/vision/src/main/assets/models" "${OPS_CONFIG}"
 sed -i.bak '/^#/d' "${OPS_CONFIG}"
 rm -f "${OPS_CONFIG}.bak"
 
@@ -66,6 +66,6 @@ PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" "${BUILD_ARGS[@]}"
 echo "Build complete. Locate the libraries with:"
 find "${ORT_DIR}/build/Android" -type f \( -name 'libonnxruntime.so' -o -name 'libonnxruntime4j_jni.so' \) -print
 AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
-AAR_DEST="${ROOT_DIR}/runtime/onnxruntime-android-1.22.0-reduced.aar"
+AAR_DEST="${ROOT_DIR}/commons-ai/runtime/onnxruntime-android-1.22.0-reduced.aar"
 cp "${AAR_SOURCE}" "${AAR_DEST}"
 echo "Copied reduced AAR to: ${AAR_DEST}"

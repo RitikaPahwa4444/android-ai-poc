@@ -17,7 +17,7 @@ android {
 }
 
 dependencies {
-    api(project(":vision"))
+    api(project(":commons-ai:vision"))
 }
 
 publishing {
