@@ -56,13 +56,14 @@ try {
 }
 ```
 
-The demo uses `ContentResolver` file descriptors and runs the native transformation on
-`Dispatchers.IO`, displaying both success and native-error states. The library has no
+The demo uses `Uri` values with ajpegtran's high-level API and runs the native transformation
+on `Dispatchers.IO`, displaying both success and native-error states. The library has no
 ajpegtran dependency and never applies blur or pixelization.
 
 ## Current implementation
 
-- ONNX Runtime Android 1.22.0; minSdk 24; configured for Android 16 KB page-size packaging.
+- Library minSdk 21. API 24+ uses ONNX Runtime for face and INT8 plate detection.
+- API 21-23 uses `MediaFaceDetector` for faces and reports plates as unsupported.
 - OpenCV Zoo YuNet face detector.
 - OpenCV Zoo LPD-YuNet license-plate detector.
 - Model-specific ONNX preprocessing and output decoders.
@@ -126,8 +127,9 @@ The app loads ORT-format versions of the source ONNX models. The original ONNX
 files are preserved under `tools/source_models/` for provenance, while only the
 converted `.ort` files under `library/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
-for a smaller mobile runtime. The build script regenerates the operator config from
-the `.ort` files and copies the resulting AAR into `runtime`. To reproduce the native
+for a smaller mobile runtime. The build script converts source ONNX models to `.ort`,
+regenerates the operator config from those `.ort` files, and copies the resulting AAR
+into `library/src/main/onnxruntime-android-1.22.0-reduced.aar`. To reproduce the native
 build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 
@@ -136,14 +138,21 @@ tools/build_reduced_onnxruntime.sh
 ```
 
 The script pins ONNX Runtime `v1.22.0`, creates a temporary Python environment,
-installs the model-analysis dependencies, and builds Java bindings for `arm64-v8a`.
+installs the model-analysis dependencies, and builds Java bindings for `armeabi-v7a` and
+`arm64-v8a`.
 It uses the official `--minimal_build` flow because the app loads ORT-format files.
 The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
 `libonnxruntime.so` and `libonnxruntime4j_jni.so` are packaged in
 `library/src/main/onnxruntime-android-1.22.0-reduced.aar` before publishing. Verify the
-release APK, detector behavior, and 16 KB ELF alignment first.
+release APK, detector behavior, ELF alignment, and ZIP/page alignment with
+`tools/verify_native_alignment.sh`.
+
+For a new ONNX model, preserve the original under `tools/source_models/`; the build script
+converts it with `python -m onnxruntime.tools.convert_onnx_models_to_ort` and packages the
+generated `.ort`. Record checksums for both files. Use `.ort` for ONNX Runtime-only
+reduced builds; retain `.onnx` when interoperability or runtime comparisons are required.
 
 ## Evaluation
 

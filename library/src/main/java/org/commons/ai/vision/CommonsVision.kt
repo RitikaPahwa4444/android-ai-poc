@@ -8,6 +8,7 @@ object CommonsVision {
     fun detector(context: Context): AiDetector = CombinedDetector(context)
 
     private class CombinedDetector(private val context: Context) : AiDetector {
+        private val fallback = MediaFaceFallback()
         private val face: AiDetector?
         private val plate: AiDetector?
 
@@ -23,7 +24,7 @@ object CommonsVision {
 
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
             val faceResult = runCatching {
-                face?.detect(bitmap, options) ?: MediaFaceFallback().detect(bitmap, options)
+                face?.detect(bitmap, options) ?: fallback.detect(bitmap, options)
             }.getOrElse { return DetectionResult.Unavailable("Face detection unavailable: ${it.message}") }
             val plateResult = plate?.let {
                 runCatching { it.detect(bitmap, options) }.getOrNull()

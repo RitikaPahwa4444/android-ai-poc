@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build the Java-enabled, arm64-only ONNX Runtime used by this POC.
+# Build the Java-enabled, 16 KB-compatible ONNX Runtime used by this POC.
 # The app loads ORT-format files, so the official minimal build is applicable.
 # The script intentionally does not modify Gradle dependencies or copy files
 # into the app; inspect/verify the output first, then run the copy commands
@@ -29,10 +29,19 @@ if [[ ! -d "${ORT_DIR}" ]]; then
 fi
 
 python3 -m venv "${PY_ENV}"
-"${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10'
+ "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10' 'onnxruntime==1.22.0'
+
+MODEL_DIR="${ROOT_DIR}/library/src/main/assets/models"
+for model in "${ROOT_DIR}"/tools/source_models/*.onnx; do
+  model_name="$(basename "${model}")"
+  "${PY_ENV}/bin/python" -m onnxruntime.tools.convert_onnx_models_to_ort \
+    "${model}" --output_dir "${MODEL_DIR}"
+  generated="${MODEL_DIR}/${model_name%.onnx}.ort"
+  test -f "${generated}" || { echo "Missing converted model: ${generated}" >&2; exit 1; }
+done
 
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
-  --format ORT "${ROOT_DIR}/library/src/main/assets/models" "${OPS_CONFIG}"
+  --format ORT "${MODEL_DIR}" "${OPS_CONFIG}"
 sed -i.bak '/^#/d' "${OPS_CONFIG}"
 rm -f "${OPS_CONFIG}.bak"
 
@@ -47,7 +56,7 @@ BUILD_ARGS=( \
   --android \
   --android_sdk_path="${SDK_DIR}" \
   --android_api=21 \
-  --android_abi=arm64-v8a \
+  --android_abi=armeabi-v7a,arm64-v8a \
   --android_ndk_path="${NDK_DIR}" \
   --cmake_path="${CMAKE_DIR}/bin/cmake" \
   --ctest_path="${CMAKE_DIR}/bin/ctest" \
