@@ -15,6 +15,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.View
@@ -38,10 +39,47 @@ class MainActivity : ComponentActivity() {
     private lateinit var overlay: DetectionOverlayView
     private lateinit var status: TextView
     private var bitmap: Bitmap? = null
+    private var sourceUri: Uri? = null
     private var faceDetector: FaceDetector? = null
     private var plateDetector: PlateDetector? = null
     private var threshold = 0.5f
     private lateinit var thresholdLabel: TextView
+
+    private val createRedactedImage =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("image/jpeg")) { uri ->
+            val source = sourceUri
+            val regions = overlay.getDetections()
+            if (uri == null || source == null || regions.isEmpty()) return@registerForActivityResult
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.openFileDescriptor(source, "r").use { input ->
+                            contentResolver.openFileDescriptor(uri, "w").use { output ->
+                                checkNotNull(input)
+                                checkNotNull(output)
+                                Ajpegtran.pixelize(
+                                    input,
+                                    output,
+                                    regions.map {
+                                        val bounds = RectF(it.bounds).apply {
+                                            inset(-width() * 0.12f, -height() * 0.12f)
+                                        }
+                                        Ajpegtran.PixelizeRegion(
+                                            bounds.left.toInt().coerceAtLeast(0),
+                                            bounds.top.toInt().coerceAtLeast(0),
+                                            bounds.width().toInt().coerceAtLeast(1),
+                                            bounds.height().toInt().coerceAtLeast(1)
+                                        )
+                                    }
+                                ).getOrThrow()
+                            }
+                        }
+                    }
+                }
+                result.onSuccess { status.text = "Saved ajpegtran-redacted JPEG." }
+                    .onFailure { status.text = "ajpegtran failed: ${diagnosticMessage(it)}" }
+            }
+        }
 
     private val openImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { loadImage(it) }
@@ -69,6 +107,13 @@ class MainActivity : ComponentActivity() {
         controls.addView(button("Open") { openImage.launch(arrayOf("image/*")) })
         controls.addView(button("Detect") { detect() })
         controls.addView(button("Redact") { applyRedaction() })
+        controls.addView(button("Export JPEG") {
+            if (sourceUri != null && overlay.getDetections().isNotEmpty()) {
+                createRedactedImage.launch("redacted.jpg")
+            } else {
+                status.text = "Detect regions before exporting."
+            }
+        })
         controls.addView(button("Delete selected") { overlay.removeSelected() })
         root.addView(controls, LinearLayout.LayoutParams(-1, -2))
 
@@ -107,6 +152,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadImage(uri: Uri) {
+        sourceUri = uri
         contentResolver.openInputStream(uri)?.use { stream ->
             val decoded = BitmapFactory.decodeStream(stream) ?: return
             bitmap = downsample(decoded, 1800)

@@ -26,6 +26,28 @@ val detections = faces.detect(bitmap, options)
 `Detection.bounds` are axis-aligned pixel coordinates in the supplied bitmap.
 The library does not depend on ajpegtran and does not apply blur or pixelation.
 
+### Connecting detections to ajpegtran
+
+Consumers can decode an image for detection, then map each `Detection.bounds` to
+integer `left/top/width/height` values in the original JPEG coordinate space.
+Pass those regions to ajpegtran as `-pixelize WxH+X+Y` options, plus
+`-optimize -copy all -rmgeotag -rmthumbnail`. ajpegtran works on file
+descriptors, so `ContentResolver` `ParcelFileDescriptor`s avoid loading or
+re-encoding the source JPEG.
+
+The demo's `Ajpegtran` adapter mirrors the upstream JNI API. Add the upstream
+native module from [commons-app/ajpegtran](https://github.com/commons-app/ajpegtran)
+to the app build, then call:
+
+```kotlin
+Ajpegtran.pixelize(inputFd, outputFd, detections.map {
+    Ajpegtran.PixelizeRegion(
+        it.bounds.left.toInt(), it.bounds.top.toInt(),
+        it.bounds.width().toInt(), it.bounds.height().toInt()
+    )
+})
+```
+
 ## Current implementation
 
 - ONNX Runtime Android 1.22.0; minSdk 24; configured for Android 16 KB page-size packaging.
@@ -36,8 +58,8 @@ The library does not depend on ajpegtran and does not apply blur or pixelation.
 - Manual box dragging/deletion and local pixelation preview.
 
 The POC uses ONNX Runtime directly and does not bundle OpenCV's full Android DNN runtime.
-The production app should connect validated suggestions to its existing `BlurRegion`/jpegtran
-pipeline rather than reuse this pixelation preview.
+The demo's **Export JPEG** action uses the ajpegtran adapter for lossless JPEG
+redaction; **Redact** remains a bitmap preview for manual review.
 
 The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
