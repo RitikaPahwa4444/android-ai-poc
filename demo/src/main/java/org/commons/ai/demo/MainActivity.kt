@@ -101,9 +101,9 @@ class MainActivity : ComponentActivity() {
                             Button(onClick = { detect() }, enabled = bitmap != null) { Text("Detect") }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { applyRedaction() }, enabled = overlay.getDetections().isNotEmpty()) { Text("Preview") }
+                            OutlinedButton(onClick = { applyRedaction() }, enabled = ::overlay.isInitialized && overlay.getDetections().isNotEmpty()) { Text("Preview") }
                             OutlinedButton(onClick = {
-                                if (sourceUri != null && overlay.getDetections().isNotEmpty()) createRedactedImage.launch("redacted.jpg")
+                                if (sourceUri != null && ::overlay.isInitialized && overlay.getDetections().isNotEmpty()) createRedactedImage.launch("redacted.jpg")
                                 else status.text = "Detect regions before exporting."
                             }, enabled = sourceUri != null) { Text("Export JPEG") }
                             TextButton(onClick = { overlay.removeSelected() }) { Text("Delete") }
