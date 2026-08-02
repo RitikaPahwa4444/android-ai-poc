@@ -1,4 +1,4 @@
-# Commons AI Android library and demo
+# Commons AI Android library and ajpegtran demo
 
 Android library for local face and license-plate suggestions, with a standalone demo app.
 
@@ -7,28 +7,35 @@ Android library for local face and license-plate suggestions, with a standalone 
 
 ## Library structure
 
-The Maven-publishable `commons-ai` library is composed of small internal modules:
+The publishable `library` module is one artifact with internal package boundaries:
 
-- `common`: immutable detection values and shared options.
-- `runtime`: the ONNX Runtime boundary and model-session lifecycle.
-- `vision`: face and plate detector APIs plus the YuNet implementation (assembled by `commons-ai`).
-- `app`: demo UI, manual review, and the ajpegtran-facing redaction integration.
+- `common`: public generic detection contract.
+- `runtime`: internal ONNX Runtime lifecycle.
+- `vision`: internal YuNet and legacy face fallback implementations.
+- `demo`: application UI, manual review, and the ajpegtran-facing export path.
 
 Consumers depend only on `org.commons:commons-ai:0.1.0` and use the stable factory API:
 
 ```kotlin
-val faces = CommonsVision.faceDetector(context)
-val plates = CommonsVision.plateDetector(context)
-val options = DetectionOptions(confidenceThreshold = 0.5f)
-val detections = faces.detect(bitmap, options)
+val detector = CommonsVision.detector(context)
+val result = detector.detect(bitmap, DetectionOptions())
+when (result) {
+    is DetectionResult.Success -> use(result.detections)
+    is DetectionResult.Partial -> showUnsupported(result.skipped)
+    is DetectionResult.Unavailable -> showError(result.reason)
+}
 ```
 
-`Detection.bounds` are axis-aligned pixel coordinates in the supplied bitmap.
+`detect` is suspend and must run from a coroutine. `Detection.bounds` are axis-aligned
+pixel coordinates in the exact bitmap supplied; do not scale the bitmap between detection
+and ajpegtran conversion. On API 24+, ONNX Runtime provides face and INT8 LPD-YuNet
+plate detection. Below API 24, face detection uses `MediaFaceDetector` and plates are
+reported explicitly in `Partial.skipped`.
 The library does not depend on ajpegtran and does not apply blur or pixelation.
 
 ### Connecting detections to ajpegtran
 
-Consumers can decode an image for detection, then map each `Detection.bounds` to
+Consumers can decode an image with known dimensions, then map each `Detection.bounds` to
 integer `left/top/width/height` values in the original JPEG coordinate space.
 Pass those regions to ajpegtran as `-pixelize WxH+X+Y` options, plus
 `-optimize -copy all -rmgeotag -rmthumbnail`. ajpegtran works on file
@@ -48,6 +55,10 @@ Ajpegtran.pixelize(inputFd, outputFd, detections.map {
 })
 ```
 
+The demo uses `ContentResolver` file descriptors and runs the native transformation on
+`Dispatchers.IO`, displaying both success and native-error states. The library has no
+ajpegtran dependency and never applies blur or pixelization.
+
 ## Current implementation
 
 - ONNX Runtime Android 1.22.0; minSdk 24; configured for Android 16 KB page-size packaging.
@@ -66,27 +77,42 @@ The current one-face/one-plate comparison is in
 checksums, and upstream licensing are in
 [`commons-ai/vision/src/main/assets/models/README.md`](commons-ai/vision/src/main/assets/models/README.md).
 
-## Build and run
+## Build and publish
 
 Configure an Android SDK in `local.properties` or `ANDROID_HOME`, and use JDK 17
 (`JAVA_HOME`) for the Android Gradle build. JDK 24 can fail AGP’s `jlink` transform
 of `core-for-system-modules.jar`. Then run:
 
 ```bash
-./gradlew assembleDebug
-./gradlew installDebug
-./gradlew printPocSize
+./gradlew :demo:assembleDebug
+./gradlew :library:assembleRelease
+./gradlew :library:publishReleasePublicationToMavenLocal
 ```
 
-The library release artifacts can be published with:
+The library uses Maven coordinates `org.commons:commons-ai:0.1.0`; consume the local
+artifact with `mavenLocal()` and one dependency:
 
-```bash
-./gradlew publish
+```kotlin
+implementation("org.commons:commons-ai:0.1.0")
 ```
 
-The library uses Maven coordinates `org.commons:commons-ai:0.1.0`;
 configure a repository, signing, and release version in CI before publishing to
 Maven Central.
+
+Use JDK 17, Android SDK 36, NDK 27.2.12479018, and CMake 3.22.1. Run size and benchmark
+reports from `benchmark/`. Verify packaged native objects with `llvm-readelf -l` and
+confirm every `LOAD` segment alignment is compatible with 16 KB pages. If Gradle fails,
+report the exact task and complete error output.
+
+## Adding a model
+
+Add the model under the appropriate internal asset directory and record its source URL,
+license, checksum, input dimensions, tensor layout, preprocessing, output tensors, and
+decoder. Add a model descriptor, backend decoder, typed detection capability, fixture
+images and expected cases; measure accuracy, latency, memory, and packaged size. Decide
+whether it is bundled, optional, or benchmark-only, update the model inventory and
+provenance, and add release notes. A model returning the generic contract does not require
+Commons UI or ajpegtran changes.
 
 ## Optional reduced ONNX Runtime build
 
