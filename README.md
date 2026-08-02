@@ -42,7 +42,7 @@ blockWidth, blockHeight, aligned)` and call `Jpegtran.blur(regions)`, followed b
 `save(destinationUri)`. `Jpegtran` manages its native file descriptors and
 temporary files; callers should call `cleanup()` after saving.
 
-The demo's `Ajpegtran` adapter mirrors the upstream JNI API. Add the upstream
+The demo's `Ajpegtran` adapter uses the same high-level ajpegtran API consumed by Commons. Add the upstream
 native module from [commons-app/ajpegtran](https://github.com/commons-app/ajpegtran)
 to the app build, then call:
 

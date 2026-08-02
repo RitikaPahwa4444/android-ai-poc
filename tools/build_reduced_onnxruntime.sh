@@ -56,7 +56,6 @@ BUILD_ARGS=( \
   --android \
   --android_sdk_path="${SDK_DIR}" \
   --android_api=21 \
-  --android_abi=armeabi-v7a,arm64-v8a \
   --android_ndk_path="${NDK_DIR}" \
   --cmake_path="${CMAKE_DIR}/bin/cmake" \
   --ctest_path="${CMAKE_DIR}/bin/ctest" \
@@ -70,11 +69,25 @@ BUILD_ARGS=( \
 
 BUILD_ARGS+=(--cmake_extra_defines "FETCHCONTENT_SOURCE_DIR_EIGEN3=${EIGEN_DIR}")
 
-PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" "${BUILD_ARGS[@]}"
-
-echo "Build complete. Locate the libraries with:"
-find "${ORT_DIR}/build/Android" -type f \( -name 'libonnxruntime.so' -o -name 'libonnxruntime4j_jni.so' \) -print
 AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
 AAR_DEST="${ROOT_DIR}/library/src/main/onnxruntime-android-1.22.0-reduced.aar"
-cp "${AAR_SOURCE}" "${AAR_DEST}"
+MERGE_DIR="$(mktemp -d)"
+trap 'rm -rf "${MERGE_DIR}"' EXIT
+for ABI in armeabi-v7a arm64-v8a; do
+  PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" \
+    "${BUILD_ARGS[@]}" --android_abi="${ABI}"
+  ABI_DIR="${MERGE_DIR}/${ABI}"
+  mkdir -p "${ABI_DIR}"
+  unzip -q "${AAR_SOURCE}" "jni/${ABI}/*.so" -d "${MERGE_DIR}/aar-${ABI}"
+  cp "${MERGE_DIR}/aar-${ABI}"/jni/"${ABI}"/*.so "${ABI_DIR}/"
+done
+rm -rf "${MERGE_DIR}/aar-"*
+unzip -q "${AAR_SOURCE}" -d "${MERGE_DIR}/base"
+rm -rf "${MERGE_DIR}/base/jni"
+mkdir -p "${MERGE_DIR}/base/jni"
+for ABI in armeabi-v7a arm64-v8a; do
+  mkdir -p "${MERGE_DIR}/base/jni/${ABI}"
+  cp "${MERGE_DIR}/${ABI}"/*.so "${MERGE_DIR}/base/jni/${ABI}/"
+done
+(cd "${MERGE_DIR}/base" && zip -qr "${AAR_DEST}" .)
 echo "Copied reduced AAR to: ${AAR_DEST}"
