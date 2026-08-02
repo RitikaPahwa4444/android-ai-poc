@@ -2,7 +2,7 @@
 
 Android library for local face and license-plate suggestions, with a standalone demo app.
 
-<img width="277" height="606" alt="Screenshot 2026-08-01 at 8 05 44 PM" src="https://github.com/user-attachments/assets/44973050-9f46-48e8-b568-ecf62b20530a" />
+<img width="1080" height="2400" alt="Screenshot_20260802_141816" src="https://github.com/user-attachments/assets/21fdb4aa-0423-4f22-9cb0-6a01eb195043" />
 
 
 ## Library structure
