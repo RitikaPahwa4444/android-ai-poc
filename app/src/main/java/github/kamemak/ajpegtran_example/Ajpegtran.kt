@@ -1,4 +1,4 @@
-package org.aipoc
+package github.kamemak.ajpegtran_example
 
 import android.os.ParcelFileDescriptor
 

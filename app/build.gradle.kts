@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "org.aipoc"
+    namespace = "github.kamemak.ajpegtran_example"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.aipoc"
+        applicationId = "github.kamemak.ajpegtran_example"
         // ORT 1.22.0 requires API 24; do not override the library manifest.
         minSdk = 24
         targetSdk = 36

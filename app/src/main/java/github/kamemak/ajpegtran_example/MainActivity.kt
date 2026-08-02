@@ -1,4 +1,4 @@
-package org.aipoc
+package github.kamemak.ajpegtran_example
 
 import org.commons.ai.common.Detection
 import org.commons.ai.common.DetectionOptions
