@@ -93,25 +93,27 @@ class MainActivity : ComponentActivity() {
                 Scaffold { padding ->
                     Column(
                         modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text("Commons AI", style = MaterialTheme.typography.headlineSmall)
                         Text("Review detected faces and license plates", style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Button(onClick = { openImage.launch(arrayOf("image/*")) }) { Text("Open") }
                             Button(onClick = { detect() }, enabled = bitmap != null) { Text("Detect") }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(onClick = { applyRedaction() }, enabled = ::overlay.isInitialized && overlay.getDetections().isNotEmpty()) { Text("Redact") }
                             TextButton(onClick = { overlay.removeSelected() }) { Text("Delete") }
                         }
-                        Text(statusMessage, style = MaterialTheme.typography.bodyMedium)
-                        Text("Confidence threshold: ${(thresholdState * 100).toInt()}%")
+                        Text(statusMessage, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth())
+                        Text("Confidence threshold: ${(thresholdState * 100).toInt()}")
                         Slider(
                             value = thresholdState,
                             onValueChange = { thresholdState = it; threshold = it },
                             valueRange = 0.05f..0.95f,
-                            onValueChangeFinished = { if (bitmap != null) detect() }
+                            onValueChangeFinished = { if (bitmap != null) detect() },
+                            modifier = Modifier.fillMaxWidth()
                         )
                         AndroidView(
                             modifier = Modifier.fillMaxWidth().weight(1f),
