@@ -189,13 +189,13 @@ class MainActivity : ComponentActivity() {
                 add(detail ?: current.javaClass.simpleName)
                 current = current.cause
             }
-
-            private fun setStatus(message: String) {
-                statusMessage = message
-                if (::status.isInitialized) status.text = message
-            }
         }
         return messages.joinToString(" → ")
+    }
+
+    private fun setStatus(message: String) {
+        statusMessage = message
+        if (::status.isInitialized) status.text = message
     }
 
     private fun applyRedaction() {
