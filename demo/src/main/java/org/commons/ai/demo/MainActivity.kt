@@ -146,8 +146,7 @@ class MainActivity : ComponentActivity() {
         sourceUri = uri
         contentResolver.openInputStream(uri)?.use { stream ->
             val decoded = BitmapFactory.decodeStream(stream) ?: return
-            bitmap = downsample(decoded, 1800)
-            if (bitmap !== decoded) decoded.recycle()
+            bitmap = decoded
             imageView.setImageBitmap(bitmap)
             overlay.setSourceSize(bitmap!!.width, bitmap!!.height)
             overlay.setDetections(emptyList())

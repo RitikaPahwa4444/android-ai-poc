@@ -75,7 +75,7 @@ redaction; **Redact** remains a bitmap preview for manual review.
 The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
 checksums, and upstream licensing are in
-[`commons-ai/vision/src/main/assets/models/README.md`](commons-ai/vision/src/main/assets/models/README.md).
+[`library/src/main/assets/models/README.md`](library/src/main/assets/models/README.md).
 
 ## Build and publish
 
@@ -116,9 +116,9 @@ Commons UI or ajpegtran changes.
 
 ## Optional reduced ONNX Runtime build
 
-The app loads ORT-format versions of the three source ONNX models. The original ONNX
+The app loads ORT-format versions of the source ONNX models. The original ONNX
 files are preserved under `tools/source_models/` for provenance, while only the
-converted `.ort` files under `commons-ai/vision/src/main/assets/models/` are packaged. Conversion
+converted `.ort` files under `library/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
 for a smaller mobile runtime. The build script regenerates the operator config from
 the `.ort` files and copies the resulting AAR into `runtime`. To reproduce the native
@@ -136,7 +136,7 @@ The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
 `libonnxruntime.so` and `libonnxruntime4j_jni.so` must both be copied to
-`app/src/main/jniLibs/arm64-v8a/` before removing the Maven dependency. Verify the
+`library/src/main/onnxruntime-android-1.22.0-reduced.aar` before publishing. Verify the
 release APK, detector behavior, and 16 KB ELF alignment first.
 
 ## Evaluation
