@@ -8,38 +8,29 @@ object CommonsVision {
     fun detector(context: Context): AiDetector = CombinedDetector(context)
 
     private class CombinedDetector(private val context: Context) : AiDetector {
-        private val initializationFailure: Throwable?
         private val face: AiDetector?
         private val plate: AiDetector?
 
         init {
             if (android.os.Build.VERSION.SDK_INT >= 24) {
-                try {
-                    face = OnnxYuNetDetector(context, DetectorKind.FACE)
-                    plate = OnnxYuNetDetector(context, DetectorKind.LICENSE_PLATE)
-                    initializationFailure = null
-                } catch (failure: Exception) {
-                    face = null
-                    plate = null
-                    initializationFailure = failure
-                }
+                face = runCatching { OnnxYuNetDetector(context, DetectorKind.FACE) }.getOrNull()
+                plate = runCatching { OnnxYuNetDetector(context, DetectorKind.LICENSE_PLATE) }.getOrNull()
             } else {
                 face = null
                 plate = null
-                initializationFailure = null
             }
         }
 
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
-            initializationFailure?.let {
-                return DetectionResult.Unavailable(it.message ?: it.javaClass.simpleName)
+            val faceResult = runCatching {
+                face?.detect(bitmap, options) ?: MediaFaceFallback().detect(bitmap, options)
+            }.getOrElse { return DetectionResult.Unavailable("Face detection unavailable: ${it.message}") }
+            val plateResult = plate?.let {
+                runCatching { it.detect(bitmap, options) }.getOrNull()
             }
-            val faceResult = face?.detect(bitmap, options) ?: MediaFaceFallback().detect(bitmap, options)
-            val plateResult = plate?.detect(bitmap, options)
-                ?: DetectionResult.Partial(emptyList(), listOf(DetectionCapability.LICENSE_PLATE))
             val faces = (faceResult as? DetectionResult.Success)?.detections.orEmpty()
             val plates = (plateResult as? DetectionResult.Success)?.detections.orEmpty()
-            return if (plate == null) DetectionResult.Partial(faces + plates, listOf(DetectionCapability.LICENSE_PLATE))
+            return if (plateResult == null) DetectionResult.Partial(faces + plates, listOf(DetectionCapability.LICENSE_PLATE))
             else DetectionResult.Success(faces + plates)
         }
 

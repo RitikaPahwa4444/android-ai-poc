@@ -47,12 +47,13 @@ native module from [commons-app/ajpegtran](https://github.com/commons-app/ajpegt
 to the app build, then call:
 
 ```kotlin
-Ajpegtran.pixelize(inputFd, outputFd, detections.map {
-    Ajpegtran.PixelizeRegion(
-        it.bounds.left.toInt(), it.bounds.top.toInt(),
-        it.bounds.width().toInt(), it.bounds.height().toInt()
-    )
-})
+val jpegtran = Jpegtran(context, inputUri)
+try {
+    jpegtran.blur(regions)
+    jpegtran.save(outputUri)
+} finally {
+    jpegtran.cleanup()
+}
 ```
 
 The demo uses `ContentResolver` file descriptors and runs the native transformation on
@@ -135,7 +136,7 @@ It uses the official `--minimal_build` flow because the app loads ORT-format fil
 The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
-`libonnxruntime.so` and `libonnxruntime4j_jni.so` must both be copied to
+`libonnxruntime.so` and `libonnxruntime4j_jni.so` are packaged in
 `library/src/main/onnxruntime-android-1.22.0-reduced.aar` before publishing. Verify the
 release APK, detector behavior, and 16 KB ELF alignment first.
 
