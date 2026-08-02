@@ -1,4 +1,4 @@
-package github.kamemak.ajpegtran_example
+package org.commons.ai.demo
 
 import org.commons.ai.common.Detection
 
