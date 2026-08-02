@@ -37,10 +37,10 @@ The library does not depend on ajpegtran and does not apply blur or pixelation.
 
 Consumers can decode an image with known dimensions, then map each `Detection.bounds` to
 integer `left/top/width/height` values in the original JPEG coordinate space.
-Pass those regions to ajpegtran as `-pixelize WxH+X+Y` options, plus
-`-optimize -copy all -rmgeotag -rmthumbnail`. ajpegtran works on file
-descriptors, so `ContentResolver` `ParcelFileDescriptor`s avoid loading or
-re-encoding the source JPEG.
+Map them to ajpegtran's `BlurRegion(width, height, cornerX, cornerY,
+blockWidth, blockHeight, aligned)` and call `Jpegtran.blur(regions)`, followed by
+`save(destinationUri)`. `Jpegtran` manages its native file descriptors and
+temporary files; callers should call `cleanup()` after saving.
 
 The demo's `Ajpegtran` adapter mirrors the upstream JNI API. Add the upstream
 native module from [commons-app/ajpegtran](https://github.com/commons-app/ajpegtran)

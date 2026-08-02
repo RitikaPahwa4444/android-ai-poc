@@ -49,13 +49,10 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        contentResolver.openFileDescriptor(source, "r").use { input ->
-                            contentResolver.openFileDescriptor(uri, "w").use { output ->
-                                checkNotNull(input)
-                                checkNotNull(output)
-                                Ajpegtran.pixelize(
-                                    input,
-                                    output,
+                        Ajpegtran.pixelize(
+                                    this@MainActivity,
+                                    source,
+                                    uri,
                                     regions.map {
                                         val bounds = RectF(it.bounds).apply {
                                             inset(-width() * 0.12f, -height() * 0.12f)
@@ -68,8 +65,6 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 ).getOrThrow()
-                            }
-                        }
                     }
                 }
                 result.onSuccess { status.text = "Saved ajpegtran-redacted JPEG." }
