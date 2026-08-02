@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
     private var detector: AiDetector? = null
     private var threshold = 0.5f
     private var thresholdState by mutableFloatStateOf(0.5f)
+    private var statusMessage by mutableStateOf("")
 
     private val createRedactedImage =
         registerForActivityResult(ActivityResultContracts.CreateDocument("image/jpeg")) { uri ->
@@ -70,8 +71,8 @@ class MainActivity : ComponentActivity() {
                                 ).getOrThrow()
                     }
                 }
-                result.onSuccess { status.text = "Saved ajpegtran-redacted JPEG." }
-                    .onFailure { status.text = "ajpegtran failed: ${diagnosticMessage(it)}" }
+                result.onSuccess { setStatus("Saved ajpegtran-redacted JPEG.") }
+                    .onFailure { setStatus("ajpegtran failed: ${diagnosticMessage(it)}") }
             }
         }
 
@@ -82,7 +83,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildUi()
-        status.text = "Select a photo. Inference stays on this device."
+        setStatus("Select a photo. Inference stays on this device.")
     }
 
     private fun buildUi() {
@@ -101,14 +102,14 @@ class MainActivity : ComponentActivity() {
                             Button(onClick = { detect() }, enabled = bitmap != null) { Text("Detect") }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { applyRedaction() }, enabled = ::overlay.isInitialized && overlay.getDetections().isNotEmpty()) { Text("Preview") }
+                            OutlinedButton(onClick = { applyRedaction() }, enabled = ::overlay.isInitialized && overlay.getDetections().isNotEmpty()) { Text("Redact") }
                             OutlinedButton(onClick = {
                                 if (sourceUri != null && ::overlay.isInitialized && overlay.getDetections().isNotEmpty()) createRedactedImage.launch("redacted.jpg")
-                                else status.text = "Detect regions before exporting."
+                                else setStatus("Detect regions before exporting.")
                             }, enabled = sourceUri != null) { Text("Export JPEG") }
                             TextButton(onClick = { overlay.removeSelected() }) { Text("Delete") }
                         }
-                        Text(status.text?.toString().orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                        Text(statusMessage, style = MaterialTheme.typography.bodyMedium)
                         Text("Confidence threshold: ${(thresholdState * 100).toInt()}%")
                         Slider(
                             value = thresholdState,
@@ -141,16 +142,16 @@ class MainActivity : ComponentActivity() {
             imageView.setImageBitmap(bitmap)
             overlay.setSourceSize(bitmap!!.width, bitmap!!.height)
             overlay.setDetections(emptyList())
-            status.text = "Loaded ${bitmap!!.width}×${bitmap!!.height}."
+            setStatus("Loaded ${bitmap!!.width}×${bitmap!!.height}.")
         }
     }
 
     private fun detect() {
         val source = bitmap ?: run {
-            status.text = "Open an image first."
+            setStatus("Open an image first.")
             return
         }
-        status.text = "Running ONNX Runtime locally…"
+        setStatus("Running ONNX Runtime locally…")
         lifecycleScope.launch {
             runCatching {
                 withContext(Dispatchers.Default) {
@@ -166,16 +167,16 @@ class MainActivity : ComponentActivity() {
                     is DetectionResult.Unavailable -> emptyList()
                 }
                 overlay.setDetections(detections)
-                status.text = String.format(
+                setStatus(String.format(
                     Locale.US,
                     "Detected %d regions (%d faces, %d plates) in %d ms. Tap/drag boxes; delete false positives.",
                     detections.size,
                     detections.count { it.type == DetectionType.FACE },
                     detections.count { it.type == DetectionType.LICENSE_PLATE },
                     result.second
-                )
+                ))
             }.onFailure { error ->
-                status.text = "Detection failed: ${diagnosticMessage(error)}"
+                setStatus("Detection failed: ${diagnosticMessage(error)}")
             }
         }
     }
@@ -188,6 +189,11 @@ class MainActivity : ComponentActivity() {
                 add(detail ?: current.javaClass.simpleName)
                 current = current.cause
             }
+
+            private fun setStatus(message: String) {
+                statusMessage = message
+                if (::status.isInitialized) status.text = message
+            }
         }
         return messages.joinToString(" → ")
     }
@@ -196,7 +202,7 @@ class MainActivity : ComponentActivity() {
         val source = bitmap ?: return
         val regions = overlay.getDetections().map { it.bounds }
         if (regions.isEmpty()) {
-            status.text = "No regions selected. Run detection or draw boxes in a later POC iteration."
+            setStatus("No regions selected. Run detection or draw boxes in a later POC iteration.")
             return
         }
         val redacted = source.copy(Bitmap.Config.ARGB_8888, true)
@@ -205,7 +211,7 @@ class MainActivity : ComponentActivity() {
         bitmap = redacted
         imageView.setImageBitmap(redacted)
         overlay.setDetections(emptyList())
-        status.text = "Applied local pixelation to ${regions.size} regions."
+        setStatus("Applied local pixelation to ${regions.size} regions.")
     }
 
     private fun getDetector(): AiDetector =
