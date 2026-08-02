@@ -14,7 +14,8 @@ android {
 }
 
 dependencies {
-    implementation(files("src/main/onnxruntime-android-1.22.0-reduced.aar"))
+    api(files("src/main/onnxruntime-android-1.22.0-reduced.aar"))
+    testImplementation(kotlin("test"))
 }
 
 publishing {
@@ -23,7 +24,23 @@ publishing {
             groupId = "org.commons"
             artifactId = "commons-ai"
             version = "0.1.0"
-            afterEvaluate { from(components["release"]) }
+            afterEvaluate {
+                from(components["release"])
+                pom.withXml {
+                    asNode().appendNode("dependencies").appendNode("dependency").apply {
+                        appendNode("groupId", "org.commons")
+                        appendNode("artifactId", "commons-ai-runtime")
+                        appendNode("version", "0.1.0")
+                        appendNode("scope", "runtime")
+                    }
+                }
+            }
+        }
+        register<MavenPublication>("runtime") {
+            groupId = "org.commons"
+            artifactId = "commons-ai-runtime"
+            version = "0.1.0"
+            artifact("src/main/onnxruntime-android-1.22.0-reduced.aar")
         }
     }
 }

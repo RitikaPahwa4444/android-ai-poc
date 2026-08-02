@@ -88,6 +88,7 @@ of `core-for-system-modules.jar`. Then run:
 ./gradlew :demo:assembleDebug
 ./gradlew :library:assembleRelease
 ./gradlew :library:publishReleasePublicationToMavenLocal
+./gradlew :library:publishRuntimePublicationToMavenLocal
 ```
 
 The library uses Maven coordinates `org.commons:commons-ai:0.1.0`; consume the local
@@ -96,6 +97,10 @@ artifact with `mavenLocal()` and one dependency:
 ```kotlin
 implementation("org.commons:commons-ai:0.1.0")
 ```
+
+The release POM brings `org.commons:commons-ai-runtime:0.1.0` transitively. Publish
+both publications to the same Maven repository; consumers still declare only the
+`commons-ai` dependency.
 
 configure a repository, signing, and release version in CI before publishing to
 Maven Central.
