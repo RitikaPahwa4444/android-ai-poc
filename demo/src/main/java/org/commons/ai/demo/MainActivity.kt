@@ -7,28 +7,29 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.graphics.drawable.ColorDrawable
-import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.SeekBar
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.util.Locale
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.Alignment
 
 /** Standalone benchmark and redaction POC for local face and plate detection. */
 class MainActivity : ComponentActivity() {
@@ -39,7 +40,7 @@ class MainActivity : ComponentActivity() {
     private var sourceUri: Uri? = null
     private var detector: AiDetector? = null
     private var threshold = 0.5f
-    private lateinit var thresholdLabel: TextView
+    private var thresholdState by mutableFloatStateOf(0.5f)
 
     private val createRedactedImage =
         registerForActivityResult(ActivityResultContracts.CreateDocument("image/jpeg")) { uri ->
@@ -83,63 +84,51 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildUi() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
-        }
-        val controls = LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            orientation = LinearLayout.HORIZONTAL
-        }
-        fun button(label: String, action: () -> Unit) = Button(this).apply {
-            text = label
-            setOnClickListener { action() }
-        }
-        controls.addView(button("Open") { openImage.launch(arrayOf("image/*")) })
-        controls.addView(button("Detect") { detect() })
-        controls.addView(button("Redact") { applyRedaction() })
-        controls.addView(button("Export JPEG") {
-            if (sourceUri != null && overlay.getDetections().isNotEmpty()) {
-                createRedactedImage.launch("redacted.jpg")
-            } else {
-                status.text = "Detect regions before exporting."
-            }
-        })
-        controls.addView(button("Delete selected") { overlay.removeSelected() })
-        root.addView(controls, LinearLayout.LayoutParams(-1, -2))
-
-        status = TextView(this).apply { setPadding(0, 8, 0, 8) }
-        root.addView(status, LinearLayout.LayoutParams(-1, -2))
-
-        thresholdLabel = TextView(this).apply {
-            text = "Confidence threshold: 50%"
-            setPadding(0, 8, 0, 0)
-        }
-        root.addView(thresholdLabel, LinearLayout.LayoutParams(-1, -2))
-        val thresholdSeekBar = SeekBar(this).apply {
-            max = 95
-            progress = 50
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar, value: Int, fromUser: Boolean) {
-                    threshold = (value.coerceAtLeast(5) / 100f)
-                    thresholdLabel.text = "Confidence threshold: ${(threshold * 100).toInt()}%"
+        status = TextView(this)
+        setContent {
+            MaterialTheme {
+                Scaffold { padding ->
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Commons AI", style = MaterialTheme.typography.headlineSmall)
+                        Text("Review detected faces and license plates", style = MaterialTheme.typography.bodyMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { openImage.launch(arrayOf("image/*")) }) { Text("Open") }
+                            Button(onClick = { detect() }, enabled = bitmap != null) { Text("Detect") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { applyRedaction() }, enabled = overlay.getDetections().isNotEmpty()) { Text("Preview") }
+                            OutlinedButton(onClick = {
+                                if (sourceUri != null && overlay.getDetections().isNotEmpty()) createRedactedImage.launch("redacted.jpg")
+                                else status.text = "Detect regions before exporting."
+                            }, enabled = sourceUri != null) { Text("Export JPEG") }
+                            TextButton(onClick = { overlay.removeSelected() }) { Text("Delete") }
+                        }
+                        Text(status.text?.toString().orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                        Text("Confidence threshold: ${(thresholdState * 100).toInt()}%")
+                        Slider(
+                            value = thresholdState,
+                            onValueChange = { thresholdState = it; threshold = it },
+                            valueRange = 0.05f..0.95f,
+                            onValueChangeFinished = { if (bitmap != null) detect() }
+                        )
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            factory = {
+                                val frame = android.widget.FrameLayout(it)
+                                imageView = ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER; background = ColorDrawable(0xffeeeeee.toInt()) }
+                                overlay = DetectionOverlayView(it)
+                                frame.addView(imageView)
+                                frame.addView(overlay)
+                                frame
+                            }
+                        )
+                    }
                 }
-                override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
-                override fun onStopTrackingTouch(seekBar: SeekBar) { if (bitmap != null) detect() }
-            })
+            }
         }
-        root.addView(thresholdSeekBar, LinearLayout.LayoutParams(-1, -2))
-
-        val imageFrame = object : android.widget.FrameLayout(this) {}
-        imageView = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            background = ColorDrawable(0xffeeeeee.toInt())
-        }
-        overlay = DetectionOverlayView(this)
-        imageFrame.addView(imageView, android.widget.FrameLayout.LayoutParams(-1, -1))
-        imageFrame.addView(overlay, android.widget.FrameLayout.LayoutParams(-1, -1))
-        root.addView(imageFrame, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(root)
     }
 
     private fun loadImage(uri: Uri) {
