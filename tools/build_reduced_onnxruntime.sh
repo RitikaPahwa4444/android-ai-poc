@@ -3,9 +3,8 @@ set -euo pipefail
 
 # Build the Java-enabled, 16 KB-compatible ONNX Runtime used by this POC.
 # The app loads ORT-format files, so the official minimal build is applicable.
-# The script intentionally does not modify Gradle dependencies or copy files
-# into the app; inspect/verify the output first, then run the copy commands
-# printed at the end.
+# The script regenerates the checked-in runtime AAR after each ABI build.
+# Inspect and verify the resulting AAR before publishing.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"

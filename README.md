@@ -149,6 +149,16 @@ build. The generated
 release APK, detector behavior, ELF alignment, and ZIP/page alignment with
 `tools/verify_native_alignment.sh`.
 
+Run the verifier against both the runtime AAR and the final demo APK:
+
+```bash
+tools/verify_native_alignment.sh library/src/main/onnxruntime-android-1.22.0-reduced.aar
+tools/verify_native_alignment.sh demo/build/outputs/apk/release/demo-release.apk
+```
+
+The APK check is the authoritative Play-packaging check; AAR verification only
+checks the intermediate runtime artifact.
+
 For a new ONNX model, preserve the original under `tools/source_models/`; the build script
 converts it with `python -m onnxruntime.tools.convert_onnx_models_to_ort` and packages the
 generated `.ort`. Record checksums for both files. Use `.ort` for ONNX Runtime-only
