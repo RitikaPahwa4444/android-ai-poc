@@ -14,7 +14,7 @@ The publishable `library` module is one artifact with internal package boundarie
 - `vision`: internal YuNet and legacy face fallback implementations.
 - `demo`: application UI, manual review, and the ajpegtran-facing export path.
 
-Consumers depend only on `org.commons:commons-ai:0.1.0` and use the stable facade API:
+Consumers depend only on `io.github.commons-app:commons-ai:0.1.0` and use the stable facade API:
 
 ```kotlin
 val vision = CommonsVision(context)
@@ -89,23 +89,21 @@ of `core-for-system-modules.jar`. Then run:
 ```bash
 ./gradlew :demo:assembleDebug
 ./gradlew :library:assembleRelease
-./gradlew :library:publishReleasePublicationToMavenLocal
-./gradlew :library:publishRuntimePublicationToMavenLocal
+./gradlew :library:publishToMavenLocal -PsignAllPublications=false
 ```
 
-The library uses Maven coordinates `org.commons:commons-ai:0.1.0`; consume the local
+The library uses Maven coordinates `io.github.commons-app:commons-ai:0.1.0`; consume the local
 artifact with `mavenLocal()` and one dependency:
 
 ```kotlin
-implementation("org.commons:commons-ai:0.1.0")
+implementation("io.github.commons-app:commons-ai:0.1.0")
 ```
 
-The release POM brings `org.commons:commons-ai-runtime:0.1.0` transitively. Publish
-both publications to the same Maven repository; consumers still declare only the
-`commons-ai` dependency.
+The published AAR contains the reduced ONNX Runtime Java classes and native libraries, so
+consumers declare only the `commons-ai` dependency.
 
-configure a repository, signing, and release version in CI before publishing to
-Maven Central.
+Maven Central publishing and signing are configured through the same Vanniktech plugin used
+by ajpegtran. Provide the Central Portal and signing credentials in CI before releasing.
 
 Use JDK 17, Android SDK 36, NDK 27.2.12479018, and CMake 3.22.1. Run size and benchmark
 reports from `benchmark/`. Verify packaged native objects with `llvm-readelf -l` and
@@ -129,9 +127,9 @@ files are preserved under `tools/source_models/` for provenance, while only the
 converted `.ort` files under `library/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
 for a smaller mobile runtime. The build script converts source ONNX models to `.ort`,
-regenerates the operator config from those `.ort` files, and copies the resulting AAR
-into `library/src/main/onnxruntime-android-1.22.0-reduced.aar`. To reproduce the native
-build, install
+regenerates the operator config from those `.ort` files, and extracts the generated Java
+classes to `library/libs/` and native libraries to `library/src/main/jniLibs/`. To reproduce
+the native build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 
 ```bash
@@ -145,20 +143,20 @@ It uses the official `--minimal_build` flow because the app loads ORT-format fil
 The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
-`libonnxruntime.so` and `libonnxruntime4j_jni.so` are packaged in
-`library/src/main/onnxruntime-android-1.22.0-reduced.aar` before publishing. Verify the
-release APK, detector behavior, ELF alignment, and ZIP/page alignment with
+`libonnxruntime.so` and `libonnxruntime4j_jni.so` are embedded in the published
+`commons-ai` AAR. Verify the release AAR and APK, detector behavior, ELF alignment, and
+ZIP/page alignment with
 `tools/verify_native_alignment.sh`.
 
-Run the verifier against both the runtime AAR and the final demo APK:
+Run the verifier against both the release library AAR and the final demo APK:
 
 ```bash
-tools/verify_native_alignment.sh library/src/main/onnxruntime-android-1.22.0-reduced.aar
+tools/verify_native_alignment.sh library/build/outputs/aar/library-release.aar
 tools/verify_native_alignment.sh demo/build/outputs/apk/release/demo-release.apk
 ```
 
-The APK check is the authoritative Play-packaging check; AAR verification only
-checks the intermediate runtime artifact.
+The APK check is the authoritative Play-packaging check; AAR verification checks the
+published library artifact.
 
 For a new ONNX model, preserve the original under `tools/source_models/`; the build script
 converts it with `python -m onnxruntime.tools.convert_onnx_models_to_ort` and packages the

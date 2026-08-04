@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Build the Java-enabled, 16 KB-compatible ONNX Runtime used by this POC.
 # The app loads ORT-format files, so the official minimal build is applicable.
-# The script regenerates the checked-in runtime AAR after each ABI build.
-# Inspect and verify the resulting AAR before publishing.
+# The script regenerates the checked-in runtime JAR and native libraries after
+# each ABI build so the published Commons AI AAR is self-contained.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"
@@ -69,7 +69,8 @@ BUILD_ARGS=( \
 BUILD_ARGS+=(--cmake_extra_defines "FETCHCONTENT_SOURCE_DIR_EIGEN3=${EIGEN_DIR}")
 
 AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
-AAR_DEST="${ROOT_DIR}/library/src/main/onnxruntime-android-1.22.0-reduced.aar"
+RUNTIME_JAR_DEST="${ROOT_DIR}/library/libs/onnxruntime-android-1.22.0-reduced.jar"
+JNI_DEST="${ROOT_DIR}/library/src/main/jniLibs"
 MERGE_DIR="$(mktemp -d)"
 trap 'rm -rf "${MERGE_DIR}"' EXIT
 for ABI in armeabi-v7a arm64-v8a; do
@@ -80,13 +81,11 @@ for ABI in armeabi-v7a arm64-v8a; do
   unzip -q "${AAR_SOURCE}" "jni/${ABI}/*.so" -d "${MERGE_DIR}/aar-${ABI}"
   cp "${MERGE_DIR}/aar-${ABI}"/jni/"${ABI}"/*.so "${ABI_DIR}/"
 done
-rm -rf "${MERGE_DIR}/aar-"*
-unzip -q "${AAR_SOURCE}" -d "${MERGE_DIR}/base"
-rm -rf "${MERGE_DIR}/base/jni"
-mkdir -p "${MERGE_DIR}/base/jni"
+rm -rf "${MERGE_DIR}/aar-"* "${JNI_DEST}/armeabi-v7a" "${JNI_DEST}/arm64-v8a"
+mkdir -p "${JNI_DEST}"
+unzip -p "${AAR_SOURCE}" classes.jar > "${RUNTIME_JAR_DEST}"
 for ABI in armeabi-v7a arm64-v8a; do
-  mkdir -p "${MERGE_DIR}/base/jni/${ABI}"
-  cp "${MERGE_DIR}/${ABI}"/*.so "${MERGE_DIR}/base/jni/${ABI}/"
+  mkdir -p "${JNI_DEST}/${ABI}"
+  cp "${MERGE_DIR}/${ABI}"/*.so "${JNI_DEST}/${ABI}/"
 done
-(cd "${MERGE_DIR}/base" && zip -qr "${AAR_DEST}" .)
-echo "Copied reduced AAR to: ${AAR_DEST}"
+echo "Copied reduced ONNX Runtime to: ${RUNTIME_JAR_DEST} and ${JNI_DEST}"

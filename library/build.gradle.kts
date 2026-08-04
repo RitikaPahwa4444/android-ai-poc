@@ -1,8 +1,10 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
-    id("maven-publish")
+    id("com.vanniktech.maven.publish")
 }
+
+val libraryVersion = "0.1.0"
 
 android {
     namespace = "org.commons.ai"
@@ -11,39 +13,43 @@ android {
         minSdk = 21
         consumerProguardFiles("consumer-rules.pro")
     }
-    publishing { singleVariant("release") { withSourcesJar() } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions.jvmTarget = "17"
 }
 
+fun MavenPom.configureCommonsAiMetadata() {
+    name.set("Commons AI")
+    description.set("Android library for on-device face and license-plate detection.")
+    url.set("https://github.com/commons-app/commons-ai-kit")
+    licenses {
+        license {
+            name.set("MIT License")
+            url.set("https://github.com/commons-app/commons-ai-kit/blob/main/LICENSE")
+            distribution.set("repo")
+        }
+    }
+    developers {
+        developer {
+            id.set("RitikaPahwa4444")
+            name.set("Ritika Pahwa")
+            url.set("https://github.com/RitikaPahwa4444")
+        }
+    }
+    scm {
+        url.set("https://github.com/commons-app/commons-ai-kit")
+        connection.set("scm:git:github.com/commons-app/commons-ai-kit.git")
+        developerConnection.set("scm:git:ssh://github.com/commons-app/commons-ai-kit.git")
+    }
+}
+
 dependencies {
-    api(files("src/main/onnxruntime-android-1.22.0-reduced.aar"))
+    implementation(files("libs/onnxruntime-android-1.22.0-reduced.jar"))
     testImplementation(kotlin("test"))
 }
 
-publishing {
-    publications {
-        register<MavenPublication>("release") {
-            groupId = "org.commons"
-            artifactId = "commons-ai"
-            version = "0.1.0"
-            afterEvaluate {
-                from(components["release"])
-                pom.withXml {
-                    asNode().appendNode("dependencies").appendNode("dependency").apply {
-                        appendNode("groupId", "org.commons")
-                        appendNode("artifactId", "commons-ai-runtime")
-                        appendNode("version", "0.1.0")
-                        appendNode("scope", "runtime")
-                    }
-                }
-            }
-        }
-        register<MavenPublication>("runtime") {
-            groupId = "org.commons"
-            artifactId = "commons-ai-runtime"
-            version = "0.1.0"
-            artifact("src/main/onnxruntime-android-1.22.0-reduced.aar")
-        }
+mavenPublishing {
+    coordinates("io.github.commons-app", "commons-ai", libraryVersion)
+    pom {
+        configureCommonsAiMetadata()
     }
 }
