@@ -36,24 +36,24 @@ class OnnxYuNetDetector internal constructor(
     private val runtime = OrtRuntime(context)
     private val environment = runtime.environment
     private lateinit var session: OrtSession
-    private var inputWidth: Int = kind.inputWidth
-    private var inputHeight: Int = kind.inputHeight
+    private var inputWidth: Int = kind.config.inputWidth
+    private var inputHeight: Int = kind.config.inputHeight
 
     init {
         try {
-            val assetFileName = kind.assetName.substringAfterLast('/')
+            val assetFileName = kind.config.assetName.substringAfterLast('/')
             val bundledModels = context.assets.list("models")?.toList().orEmpty()
             require(assetFileName in bundledModels) {
-                "Missing model asset '${kind.assetName}'. Bundled models: ${bundledModels.joinToString()}"
+                "Missing model asset '${kind.config.assetName}'. Bundled models: ${bundledModels.joinToString()}"
             }
-            session = runtime.openSession(kind.assetName)
+            session = runtime.openSession(kind.config.assetName)
             val inputInfo = session.inputInfo.values.first().info as TensorInfo
             val shape = inputInfo.shape
             require(shape.size == 4) { "Expected NCHW model input, got ${shape.contentToString()}" }
-            inputHeight = shape[2].takeIf { it > 0 }?.toInt() ?: kind.inputHeight
-            inputWidth = shape[3].takeIf { it > 0 }?.toInt() ?: kind.inputWidth
+            inputHeight = shape[2].takeIf { it > 0 }?.toInt() ?: kind.config.inputHeight
+            inputWidth = shape[3].takeIf { it > 0 }?.toInt() ?: kind.config.inputWidth
         } catch (error: Exception) {
-            Log.w("FaceDetector", "Unable to initialize ${kind.detectionType} ONNX detector", error)
+            Log.w("FaceDetector", "Unable to initialize ${kind.config.detectionType} ONNX detector", error)
         }
     }
 
@@ -118,7 +118,7 @@ class OnnxYuNetDetector internal constructor(
                 )
                 bounds.intersect(0f, 0f, source.width.toFloat(), source.height.toFloat())
                 if (bounds.width() <= 1f || bounds.height() <= 1f) null
-                else Detection(kind.detectionType, confidence, bounds)
+                else Detection(kind.config.detectionType, confidence, bounds)
             }
         } finally {
             rgb565.recycle()
@@ -216,7 +216,7 @@ class OnnxYuNetDetector internal constructor(
                 )
                 box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
                 if (box.width() > 1f && box.height() > 1f) {
-                    detections += Detection(kind.detectionType, score, box)
+                    detections += Detection(kind.config.detectionType, score, box)
                 }
             }
         }
@@ -290,7 +290,7 @@ class OnnxYuNetDetector internal constructor(
             )
             box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
             if (box.width() > 1f && box.height() > 1f) {
-                detections += Detection(kind.detectionType, score, box)
+                detections += Detection(kind.config.detectionType, score, box)
             }
         }
         return nonMaximumSuppression(detections)
