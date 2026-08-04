@@ -2,6 +2,7 @@ package org.commons.ai.vision
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import org.commons.ai.common.*
 
 object CommonsVision {
@@ -43,8 +44,14 @@ object CommonsVision {
 
     private class MediaFaceFallback : AiDetector {
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
-            val rgb565 = bitmap.copy(Bitmap.Config.RGB_565, false)
+            var width = bitmap.width
+            if (width % 2 != 0) width--
+            if (width <= 0 || bitmap.height <= 0) {
+                return DetectionResult.Success(emptyList())
+            }
+            val rgb565 = Bitmap.createBitmap(width, bitmap.height, Bitmap.Config.RGB_565)
             try {
+                Canvas(rgb565).drawBitmap(bitmap, 0f, 0f, null)
                 val detector = android.media.FaceDetector(rgb565.width, rgb565.height, options.maximumResults)
                 val faces = arrayOfNulls<android.media.FaceDetector.Face>(options.maximumResults)
                 val count = detector.findFaces(rgb565, faces)
