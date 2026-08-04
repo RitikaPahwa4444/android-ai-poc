@@ -2,7 +2,10 @@ package org.commons.ai.vision
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.PointF
 import android.graphics.RectF
+import android.media.FaceDetector
 import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtSession
@@ -32,27 +35,35 @@ class OnnxYuNetDetector internal constructor(
 ) : Detector {
     private val runtime = OrtRuntime(context)
     private val environment = runtime.environment
-    private val session: OrtSession
-    private val inputWidth: Int
-    private val inputHeight: Int
+    private lateinit var session: OrtSession
+    private var inputWidth: Int = kind.inputWidth
+    private var inputHeight: Int = kind.inputHeight
 
     init {
-        val assetFileName = kind.assetName.substringAfterLast('/')
-        val bundledModels = context.assets.list("models")?.toList().orEmpty()
-        require(assetFileName in bundledModels) {
-            "Missing model asset '${kind.assetName}'. Bundled models: ${bundledModels.joinToString()}"
+        try {
+            val assetFileName = kind.assetName.substringAfterLast('/')
+            val bundledModels = context.assets.list("models")?.toList().orEmpty()
+            require(assetFileName in bundledModels) {
+                "Missing model asset '${kind.assetName}'. Bundled models: ${bundledModels.joinToString()}"
+            }
+            session = runtime.openSession(kind.assetName)
+            val inputInfo = session.inputInfo.values.first().info as TensorInfo
+            val shape = inputInfo.shape
+            require(shape.size == 4) { "Expected NCHW model input, got ${shape.contentToString()}" }
+            inputHeight = shape[2].takeIf { it > 0 }?.toInt() ?: kind.inputHeight
+            inputWidth = shape[3].takeIf { it > 0 }?.toInt() ?: kind.inputWidth
+        } catch (error: Exception) {
+            Log.w("FaceDetector", "Unable to initialize ${kind.detectionType} ONNX detector", error)
         }
-        session = runtime.openSession(kind.assetName)
-        val inputInfo = session.inputInfo.values.first().info as TensorInfo
-        val shape = inputInfo.shape
-        require(shape.size == 4) { "Expected NCHW model input, got ${shape.contentToString()}" }
-        inputHeight = shape[2].takeIf { it > 0 }?.toInt() ?: kind.inputHeight
-        inputWidth = shape[3].takeIf { it > 0 }?.toInt() ?: kind.inputWidth
     }
 
     /** Detects faces or plates and maps model coordinates back to the source bitmap. */
     override suspend fun detect(source: Bitmap, options: DetectionOptions): DetectionResult {
         val threshold = options.confidenceThreshold
+        if (kind == DetectorKind.FACE && !::session.isInitialized) {
+            Log.w("FaceDetector", "YuNet is unavailable; using platform FaceDetector")
+            return DetectionResult.Success(detectPlatformFaces(source, threshold).take(options.maximumResults))
+        }
         val regions = if (kind == DetectorKind.LICENSE_PLATE) {
             plateRegions(source)
         } else {
@@ -74,7 +85,44 @@ class OnnxYuNetDetector internal constructor(
                 if (crop !== source) crop.recycle()
             }
         }
-        return DetectionResult.Success(nonMaximumSuppression(detections).take(options.maximumResults))
+        val result = nonMaximumSuppression(detections).take(options.maximumResults)
+        if (kind == DetectorKind.FACE && result.isEmpty()) {
+            Log.w("FaceDetector", "YuNet returned no faces; trying platform FaceDetector")
+            return DetectionResult.Success(detectPlatformFaces(source, threshold).take(options.maximumResults))
+        }
+        return DetectionResult.Success(result)
+    }
+
+    private fun detectPlatformFaces(source: Bitmap, threshold: Float): List<Detection> {
+        var width = source.width
+        if (width % 2 != 0) width--
+        if (width <= 0 || source.height <= 0) return emptyList()
+        val rgb565 = Bitmap.createBitmap(width, source.height, Bitmap.Config.RGB_565)
+        return try {
+            Canvas(rgb565).drawBitmap(source, 0f, 0f, null)
+            val detector = FaceDetector(width, source.height, 100)
+            val faces = arrayOfNulls<FaceDetector.Face>(100)
+            val count = detector.findFaces(rgb565, faces)
+            (0 until count).mapNotNull { index ->
+                val face = faces[index] ?: return@mapNotNull null
+                val confidence = face.confidence()
+                if (confidence < threshold) return@mapNotNull null
+                val midpoint = PointF()
+                face.getMidPoint(midpoint)
+                val distance = face.eyesDistance()
+                val bounds = RectF(
+                    midpoint.x - distance * 1.35f,
+                    midpoint.y - distance * 1.65f,
+                    midpoint.x + distance * 1.35f,
+                    midpoint.y + distance * 1.85f
+                )
+                bounds.intersect(0f, 0f, source.width.toFloat(), source.height.toFloat())
+                if (bounds.width() <= 1f || bounds.height() <= 1f) null
+                else Detection(kind.detectionType, confidence, bounds)
+            }
+        } finally {
+            rgb565.recycle()
+        }
     }
 
     private fun detectRegion(source: Bitmap, threshold: Float): List<Detection> {
