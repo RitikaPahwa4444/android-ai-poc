@@ -3,17 +3,17 @@ package org.commons.ai.common
 import android.graphics.RectF
 import android.graphics.Bitmap
 
+/** Low-level detector contract used by the library facade. */
 interface AiDetector : AutoCloseable {
     suspend fun detect(bitmap: Bitmap, options: DetectionOptions = DetectionOptions()): DetectionResult
 }
 
+/** Result of running all detector capabilities available on the device. */
 sealed interface DetectionResult {
     data class Success(val detections: List<Detection>) : DetectionResult
-    data class Partial(val detections: List<Detection>, val skipped: List<DetectionCapability>) : DetectionResult
+    data class Partial(val detections: List<Detection>, val skipped: List<DetectionType>) : DetectionResult
     data class Unavailable(val reason: String) : DetectionResult
 }
-
-enum class DetectionCapability { FACE, LICENSE_PLATE }
 
 /** A model prediction expressed in pixels of the displayed source bitmap. */
 data class Detection(
@@ -22,8 +22,10 @@ data class Detection(
     val bounds: RectF
 )
 
+/** Kind of object represented by a detection. */
 enum class DetectionType { FACE, LICENSE_PLATE }
 
+/** Options controlling confidence filtering and result count. */
 data class DetectionOptions(
     val confidenceThreshold: Float = 0.5f,
     val maximumResults: Int = 100

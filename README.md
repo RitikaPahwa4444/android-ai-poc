@@ -14,16 +14,17 @@ The publishable `library` module is one artifact with internal package boundarie
 - `vision`: internal YuNet and legacy face fallback implementations.
 - `demo`: application UI, manual review, and the ajpegtran-facing export path.
 
-Consumers depend only on `org.commons:commons-ai:0.1.0` and use the stable factory API:
+Consumers depend only on `org.commons:commons-ai:0.1.0` and use the stable facade API:
 
 ```kotlin
-val detector = CommonsVision.detector(context)
-val result = detector.detect(bitmap, DetectionOptions())
+val vision = CommonsVision(context)
+val result = vision.detect(bitmap, DetectionOptions())
 when (result) {
     is DetectionResult.Success -> use(result.detections)
     is DetectionResult.Partial -> showUnsupported(result.skipped)
     is DetectionResult.Unavailable -> showError(result.reason)
 }
+vision.close()
 ```
 
 `detect` is suspend and must run from a coroutine. `Detection.bounds` are axis-aligned

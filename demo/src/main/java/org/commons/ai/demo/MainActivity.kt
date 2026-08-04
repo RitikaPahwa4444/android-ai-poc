@@ -4,7 +4,6 @@ import org.commons.ai.common.*
 import org.commons.ai.vision.CommonsVision
 
 import android.app.Activity
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -12,9 +11,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
-import android.os.ParcelFileDescriptor
 import android.graphics.drawable.ColorDrawable
-import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -40,7 +37,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
     private var bitmap: Bitmap? = null
     private var sourceUri: Uri? = null
-    private var detector: AiDetector? = null
+    private var detector: CommonsVision? = null
     private var threshold = 0.5f
     private var thresholdState by mutableFloatStateOf(0.5f)
     private var statusMessage by mutableStateOf("")
@@ -212,23 +209,13 @@ class MainActivity : ComponentActivity() {
         setStatus("Applied local pixelation to ${regions.size} regions.")
     }
 
-    private fun getDetector(): AiDetector =
-        detector ?: CommonsVision.detector(this).also { detector = it }
+    private fun getDetector(): CommonsVision =
+        detector ?: CommonsVision(this).also { detector = it }
 
     override fun onDestroy() {
         detector?.close()
         bitmap?.recycle()
         super.onDestroy()
-    }
-
-    private fun downsample(source: Bitmap, maxDimension: Int): Bitmap {
-        val scale = minOf(1f, maxDimension.toFloat() / maxOf(source.width, source.height))
-        return if (scale == 1f) source else Bitmap.createScaledBitmap(
-            source,
-            (source.width * scale).toInt(),
-            (source.height * scale).toInt(),
-            true
-        )
     }
 
     private fun pixelate(bitmap: Bitmap, regions: List<RectF>) {

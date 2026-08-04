@@ -5,8 +5,21 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import org.commons.ai.common.*
 
-object CommonsVision {
-    fun detector(context: Context): AiDetector = CombinedDetector(context)
+/**
+ * Facade for on-device face and license-plate detection.
+ *
+ * Create one instance for the lifetime of the consumer and close it when it is
+ * no longer needed.
+ */
+class CommonsVision(context: Context) : AutoCloseable {
+    private val detector: AiDetector = CombinedDetector(context.applicationContext)
+
+    suspend fun detect(bitmap: Bitmap, options: DetectionOptions = DetectionOptions()): DetectionResult =
+        detector.detect(bitmap, options)
+
+    override fun close() {
+        detector.close()
+    }
 
     private class CombinedDetector(private val context: Context) : AiDetector {
         private val fallback = MediaFaceFallback()
@@ -32,7 +45,7 @@ object CommonsVision {
             }
             val faces = (faceResult as? DetectionResult.Success)?.detections.orEmpty()
             val plates = (plateResult as? DetectionResult.Success)?.detections.orEmpty()
-            return if (plateResult == null) DetectionResult.Partial(faces + plates, listOf(DetectionCapability.LICENSE_PLATE))
+            return if (plateResult == null) DetectionResult.Partial(faces + plates, listOf(DetectionType.LICENSE_PLATE))
             else DetectionResult.Success(faces + plates)
         }
 
