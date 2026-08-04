@@ -44,14 +44,25 @@ object CommonsVision {
 
     private class MediaFaceFallback : AiDetector {
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
-            var width = bitmap.width
+            val scale = maxOf(1f, 2048f / maxOf(bitmap.width, bitmap.height).toFloat())
+            val detectionBitmap = if (scale < 1f) {
+                Bitmap.createScaledBitmap(
+                    bitmap,
+                    (bitmap.width * scale).toInt(),
+                    (bitmap.height * scale).toInt(),
+                    true
+                )
+            } else {
+                bitmap
+            }
+            var width = detectionBitmap.width
             if (width % 2 != 0) width--
-            if (width <= 0 || bitmap.height <= 0) {
+            if (width <= 0 || detectionBitmap.height <= 0) {
                 return DetectionResult.Success(emptyList())
             }
-            val rgb565 = Bitmap.createBitmap(width, bitmap.height, Bitmap.Config.RGB_565)
+            val rgb565 = Bitmap.createBitmap(width, detectionBitmap.height, Bitmap.Config.RGB_565)
             try {
-                Canvas(rgb565).drawBitmap(bitmap, 0f, 0f, null)
+                Canvas(rgb565).drawBitmap(detectionBitmap, 0f, 0f, null)
                 val detector = android.media.FaceDetector(rgb565.width, rgb565.height, options.maximumResults)
                 val faces = arrayOfNulls<android.media.FaceDetector.Face>(options.maximumResults)
                 val count = detector.findFaces(rgb565, faces)
@@ -61,12 +72,16 @@ object CommonsVision {
                     face.getMidPoint(midpoint)
                     val radius = face.eyesDistance() * 1.8f
                     Detection(DetectionType.FACE, face.confidence(), android.graphics.RectF(
-                        midpoint.x - radius, midpoint.y - radius, midpoint.x + radius, midpoint.y + radius
+                        (midpoint.x - radius) / scale,
+                        (midpoint.y - radius) / scale,
+                        (midpoint.x + radius) / scale,
+                        (midpoint.y + radius) / scale
                     ).apply { intersect(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat()) })
                 }
                 return DetectionResult.Success(detections)
             } finally {
                 rgb565.recycle()
+                if (detectionBitmap !== bitmap) detectionBitmap.recycle()
             }
         }
         override fun close() = Unit
