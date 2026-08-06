@@ -1,0 +1,55 @@
+plugins {
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("com.vanniktech.maven.publish")
+}
+
+val libraryVersion = "0.1.0"
+
+android {
+    namespace = "org.commons.ai"
+    compileSdk = 36
+    defaultConfig {
+        minSdk = 21
+        consumerProguardFiles("consumer-rules.pro")
+    }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+    kotlinOptions.jvmTarget = "17"
+}
+
+fun MavenPom.configureCommonsAiMetadata() {
+    name.set("Commons AI")
+    description.set("Android library for on-device face and license-plate detection.")
+    url.set("https://github.com/commons-app/commons-ai-kit")
+    licenses {
+        license {
+            name.set("MIT License")
+            url.set("https://github.com/commons-app/commons-ai-kit/blob/main/LICENSE")
+            distribution.set("repo")
+        }
+    }
+    developers {
+        developer {
+            id.set("RitikaPahwa4444")
+            name.set("Ritika Pahwa")
+            url.set("https://github.com/RitikaPahwa4444")
+        }
+    }
+    scm {
+        url.set("https://github.com/commons-app/commons-ai-kit")
+        connection.set("scm:git:github.com/commons-app/commons-ai-kit.git")
+        developerConnection.set("scm:git:ssh://github.com/commons-app/commons-ai-kit.git")
+    }
+}
+
+dependencies {
+    implementation(files("libs/onnxruntime-android-1.22.0-reduced.jar"))
+    testImplementation(kotlin("test"))
+}
+
+mavenPublishing {
+    coordinates("io.github.commons-app", "commons-ai", libraryVersion)
+    pom {
+        configureCommonsAiMetadata()
+    }
+}

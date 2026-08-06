@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build the Java-enabled, arm64-only ONNX Runtime used by this POC.
+# Build the Java-enabled, 16 KB-compatible ONNX Runtime used by this POC.
 # The app loads ORT-format files, so the official minimal build is applicable.
-# The script intentionally does not modify Gradle dependencies or copy files
-# into the app; inspect/verify the output first, then run the copy commands
-# printed at the end.
+# The script regenerates the checked-in runtime JAR and native libraries after
+# each ABI build so the published Commons AI AAR is self-contained.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"
@@ -29,10 +28,19 @@ if [[ ! -d "${ORT_DIR}" ]]; then
 fi
 
 python3 -m venv "${PY_ENV}"
-"${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10'
+ "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10' 'onnxruntime==1.22.0'
+
+MODEL_DIR="${ROOT_DIR}/library/src/main/assets/models"
+for model in "${ROOT_DIR}"/tools/source_models/*.onnx; do
+  model_name="$(basename "${model}")"
+  "${PY_ENV}/bin/python" -m onnxruntime.tools.convert_onnx_models_to_ort \
+    "${model}" --output_dir "${MODEL_DIR}"
+  generated="${MODEL_DIR}/${model_name%.onnx}.ort"
+  test -f "${generated}" || { echo "Missing converted model: ${generated}" >&2; exit 1; }
+done
 
 "${PY_ENV}/bin/python" "${ORT_DIR}/tools/python/create_reduced_build_config.py" \
-  --format ORT "${ROOT_DIR}/app/src/main/assets/models" "${OPS_CONFIG}"
+  --format ORT "${MODEL_DIR}" "${OPS_CONFIG}"
 sed -i.bak '/^#/d' "${OPS_CONFIG}"
 rm -f "${OPS_CONFIG}.bak"
 
@@ -46,8 +54,7 @@ fi
 BUILD_ARGS=( \
   --android \
   --android_sdk_path="${SDK_DIR}" \
-  --android_api=24 \
-  --android_abi=arm64-v8a \
+  --android_api=21 \
   --android_ndk_path="${NDK_DIR}" \
   --cmake_path="${CMAKE_DIR}/bin/cmake" \
   --ctest_path="${CMAKE_DIR}/bin/ctest" \
@@ -61,11 +68,24 @@ BUILD_ARGS=( \
 
 BUILD_ARGS+=(--cmake_extra_defines "FETCHCONTENT_SOURCE_DIR_EIGEN3=${EIGEN_DIR}")
 
-PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" "${BUILD_ARGS[@]}"
-
-echo "Build complete. Locate the libraries with:"
-find "${ORT_DIR}/build/Android" -type f \( -name 'libonnxruntime.so' -o -name 'libonnxruntime4j_jni.so' \) -print
 AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
-AAR_DEST="${ROOT_DIR}/app/libs/onnxruntime-android-1.22.0-reduced.aar"
-cp "${AAR_SOURCE}" "${AAR_DEST}"
-echo "Copied reduced AAR to: ${AAR_DEST}"
+RUNTIME_JAR_DEST="${ROOT_DIR}/library/libs/onnxruntime-android-1.22.0-reduced.jar"
+JNI_DEST="${ROOT_DIR}/library/src/main/jniLibs"
+MERGE_DIR="$(mktemp -d)"
+trap 'rm -rf "${MERGE_DIR}"' EXIT
+for ABI in armeabi-v7a arm64-v8a; do
+  PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" \
+    "${BUILD_ARGS[@]}" --android_abi="${ABI}"
+  ABI_DIR="${MERGE_DIR}/${ABI}"
+  mkdir -p "${ABI_DIR}"
+  unzip -q "${AAR_SOURCE}" "jni/${ABI}/*.so" -d "${MERGE_DIR}/aar-${ABI}"
+  cp "${MERGE_DIR}/aar-${ABI}"/jni/"${ABI}"/*.so "${ABI_DIR}/"
+done
+rm -rf "${MERGE_DIR}/aar-"* "${JNI_DEST}/armeabi-v7a" "${JNI_DEST}/arm64-v8a"
+mkdir -p "${JNI_DEST}"
+unzip -p "${AAR_SOURCE}" classes.jar > "${RUNTIME_JAR_DEST}"
+for ABI in armeabi-v7a arm64-v8a; do
+  mkdir -p "${JNI_DEST}/${ABI}"
+  cp "${MERGE_DIR}/${ABI}"/*.so "${JNI_DEST}/${ABI}/"
+done
+echo "Copied reduced ONNX Runtime to: ${RUNTIME_JAR_DEST} and ${JNI_DEST}"

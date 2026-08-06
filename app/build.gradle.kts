@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "org.aipoc"
+    namespace = "org.commons.ai.demo"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.aipoc"
+        applicationId = "org.commons.ai.demo"
         // ORT 1.22.0 requires API 24; do not override the library manifest.
         minSdk = 24
         targetSdk = 36
@@ -49,10 +49,7 @@ android {
 }
 
 dependencies {
-    // Locally built ONNX Runtime 1.22.0, reduced to the operators used by the
-    // bundled face and INT8 plate models. The AAR contains both Java classes
-    // and the arm64-v8a libonnxruntime*.so files.
-    implementation(files("libs/onnxruntime-android-1.22.0-reduced.aar"))
+    implementation(project(":commons-ai"))
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

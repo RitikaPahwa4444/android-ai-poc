@@ -16,5 +16,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "android-ai-poc"
-include(":app")
+rootProject.name = "commons-ai"
+include(":library")
+include(":demo")

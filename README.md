@@ -1,13 +1,70 @@
-# Android face and license plate detector POC
+# Commons AI Android library and ajpegtran demo
 
-Standalone Android proof of concept for local face and license-plate suggestions. Built to understand impact on app size.  
+Android library for local face and license-plate suggestions, with a standalone demo app.
 
-<img width="277" height="606" alt="Screenshot 2026-08-01 at 8 05 44 PM" src="https://github.com/user-attachments/assets/44973050-9f46-48e8-b568-ecf62b20530a" />
+<img width="1080" height="2400" alt="Screenshot_20260802_141816" src="https://github.com/user-attachments/assets/21fdb4aa-0423-4f22-9cb0-6a01eb195043" />
 
+
+## Library structure
+
+The publishable `library` module is one artifact with internal package boundaries:
+
+- `common`: public generic detection contract.
+- `runtime`: internal ONNX Runtime lifecycle.
+- `vision`: internal YuNet and legacy face fallback implementations.
+- `demo`: application UI, manual review, and the ajpegtran-facing export path.
+
+Consumers depend only on `io.github.commons-app:commons-ai:0.1.0` and use the stable facade API:
+
+```kotlin
+val vision = CommonsVision(context)
+val result = vision.detect(bitmap, DetectionOptions())
+when (result) {
+    is DetectionResult.Success -> use(result.detections)
+    is DetectionResult.Partial -> showUnsupported(result.skipped)
+    is DetectionResult.Unavailable -> showError(result.reason)
+}
+vision.close()
+```
+
+`detect` is suspend and must run from a coroutine. `Detection.bounds` are axis-aligned
+pixel coordinates in the exact bitmap supplied; do not scale the bitmap between detection
+and ajpegtran conversion. On API 24+, ONNX Runtime provides face and INT8 LPD-YuNet
+plate detection. Below API 24, face detection uses `MediaFaceDetector` and plates are
+reported explicitly in `Partial.skipped`.
+The library does not depend on ajpegtran and does not apply blur or pixelation.
+
+### Connecting detections to ajpegtran
+
+Consumers can decode an image with known dimensions, then map each `Detection.bounds` to
+integer `left/top/width/height` values in the original JPEG coordinate space.
+Map them to ajpegtran's `BlurRegion(width, height, cornerX, cornerY,
+blockWidth, blockHeight, aligned)` and call `Jpegtran.blur(regions)`, followed by
+`save(destinationUri)`. `Jpegtran` manages its native file descriptors and
+temporary files; callers should call `cleanup()` after saving.
+
+The demo's `Ajpegtran` adapter uses the same high-level ajpegtran API consumed by Commons. Add the upstream
+native module from [commons-app/ajpegtran](https://github.com/commons-app/ajpegtran)
+to the app build, then call:
+
+```kotlin
+val jpegtran = Jpegtran(context, inputUri)
+try {
+    jpegtran.blur(regions)
+    jpegtran.save(outputUri)
+} finally {
+    jpegtran.cleanup()
+}
+```
+
+The demo uses `Uri` values with ajpegtran's high-level API and runs the native transformation
+on `Dispatchers.IO`, displaying both success and native-error states. The library has no
+ajpegtran dependency and never applies blur or pixelization.
 
 ## Current implementation
 
-- ONNX Runtime Android 1.22.0; minSdk 24; configured for Android 16 KB page-size packaging.
+- Library minSdk 21. API 24+ uses ONNX Runtime for face and INT8 plate detection.
+- API 21-23 uses `MediaFaceDetector` for faces and reports plates as unsupported.
 - OpenCV Zoo YuNet face detector.
 - OpenCV Zoo LPD-YuNet license-plate detector.
 - Model-specific ONNX preprocessing and output decoders.
@@ -15,35 +72,64 @@ Standalone Android proof of concept for local face and license-plate suggestions
 - Manual box dragging/deletion and local pixelation preview.
 
 The POC uses ONNX Runtime directly and does not bundle OpenCV's full Android DNN runtime.
-The production app should connect validated suggestions to its existing `BlurRegion`/jpegtran
-pipeline rather than reuse this pixelation preview.
+The demo's **Export JPEG** action uses the ajpegtran adapter for lossless JPEG
+redaction; **Redact** remains a bitmap preview for manual review.
 
 The current one-face/one-plate comparison is in
 [`benchmark/runtime-comparison.md`](benchmark/runtime-comparison.md). Model provenance,
 checksums, and upstream licensing are in
-[`app/src/main/assets/models/README.md`](app/src/main/assets/models/README.md).
+[`library/src/main/assets/models/README.md`](library/src/main/assets/models/README.md).
 
-## Build and run
+## Build and publish
 
 Configure an Android SDK in `local.properties` or `ANDROID_HOME`, and use JDK 17
 (`JAVA_HOME`) for the Android Gradle build. JDK 24 can fail AGP’s `jlink` transform
 of `core-for-system-modules.jar`. Then run:
 
 ```bash
-./gradlew assembleDebug
-./gradlew installDebug
-./gradlew printPocSize
+./gradlew :demo:assembleDebug
+./gradlew :library:assembleRelease
+./gradlew :library:publishToMavenLocal -PsignAllPublications=false
 ```
+
+The library uses Maven coordinates `io.github.commons-app:commons-ai:0.1.0`; consume the local
+artifact with `mavenLocal()` and one dependency:
+
+```kotlin
+implementation("io.github.commons-app:commons-ai:0.1.0")
+```
+
+The published AAR contains the reduced ONNX Runtime Java classes and native libraries, so
+consumers declare only the `commons-ai` dependency.
+
+Maven Central publishing and signing are configured through the same Vanniktech plugin used
+by ajpegtran. Provide the Central Portal and signing credentials in CI before releasing.
+
+Use JDK 17, Android SDK 36, NDK 27.2.12479018, and CMake 3.22.1. Run size and benchmark
+reports from `benchmark/`. Verify packaged native objects with `llvm-readelf -l` and
+confirm every `LOAD` segment alignment is compatible with 16 KB pages. If Gradle fails,
+report the exact task and complete error output.
+
+## Adding a model
+
+Add the model under the appropriate internal asset directory and record its source URL,
+license, checksum, input dimensions, tensor layout, preprocessing, output tensors, and
+decoder. Add a model descriptor, backend decoder, typed detection capability, fixture
+images and expected cases; measure accuracy, latency, memory, and packaged size. Decide
+whether it is bundled, optional, or benchmark-only, update the model inventory and
+provenance, and add release notes. A model returning the generic contract does not require
+Commons UI or ajpegtran changes.
 
 ## Optional reduced ONNX Runtime build
 
-The app loads ORT-format versions of the three source ONNX models. The original ONNX
+The app loads ORT-format versions of the source ONNX models. The original ONNX
 files are preserved under `tools/source_models/` for provenance, while only the
-converted `.ort` files under `app/src/main/assets/models/` are packaged. Conversion
+converted `.ort` files under `library/src/main/assets/models/` are packaged. Conversion
 preserves their graphs while saving optimization results
-for a smaller mobile runtime. The build script regenerates the operator config from
-the `.ort` files and copies the resulting AAR into `app/libs`. To reproduce the native
-build, install
+for a smaller mobile runtime. The build script converts source ONNX models to `.ort`,
+regenerates the operator config from those `.ort` files, and extracts the generated Java
+classes to `library/libs/` and native libraries to `library/src/main/jniLibs/`. To reproduce
+the native build, install
 Git, Python 3, the Android SDK/NDK, and CMake, then run:
 
 ```bash
@@ -51,14 +137,31 @@ tools/build_reduced_onnxruntime.sh
 ```
 
 The script pins ONNX Runtime `v1.22.0`, creates a temporary Python environment,
-installs the model-analysis dependencies, and builds Java bindings for `arm64-v8a`.
+installs the model-analysis dependencies, and builds Java bindings for `armeabi-v7a` and
+`arm64-v8a`.
 It uses the official `--minimal_build` flow because the app loads ORT-format files.
 The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
-`libonnxruntime.so` and `libonnxruntime4j_jni.so` must both be copied to
-`app/src/main/jniLibs/arm64-v8a/` before removing the Maven dependency. Verify the
-release APK, detector behavior, and 16 KB ELF alignment first.
+`libonnxruntime.so` and `libonnxruntime4j_jni.so` are embedded in the published
+`commons-ai` AAR. Verify the release AAR and APK, detector behavior, ELF alignment, and
+ZIP/page alignment with
+`tools/verify_native_alignment.sh`.
+
+Run the verifier against both the release library AAR and the final demo APK:
+
+```bash
+tools/verify_native_alignment.sh library/build/outputs/aar/library-release.aar
+tools/verify_native_alignment.sh demo/build/outputs/apk/release/demo-release.apk
+```
+
+The APK check is the authoritative Play-packaging check; AAR verification checks the
+published library artifact.
+
+For a new ONNX model, preserve the original under `tools/source_models/`; the build script
+converts it with `python -m onnxruntime.tools.convert_onnx_models_to_ort` and packages the
+generated `.ort`. Record checksums for both files. Use `.ort` for ONNX Runtime-only
+reduced builds; retain `.onnx` when interoperability or runtime comparisons are required.
 
 ## Evaluation
 
