@@ -14,15 +14,7 @@ SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/Users/Shared/Library/Android/sdk}}
 NDK_DIR="${ANDROID_NDK_HOME:-${SDK_DIR}/ndk/28.2.13676358}"
 CMAKE_DIR="${CMAKE_DIR:-${SDK_DIR}/cmake/4.1.2}"
 PY_ENV="${PY_ENV:-${TMPDIR:-/tmp}/ort-venv}"
-if [[ -z "${PYTHON_BIN:-}" ]]; then
-  for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "${candidate}" >/dev/null 2>&1; then
-      PYTHON_BIN="${candidate}"
-      break
-    fi
-  done
-fi
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+PYTHON_BIN="${PYTHON_BIN:-python3.13}"
 OPS_CONFIG="${ROOT_DIR}/tools/reduced_ops.config"
 EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
 EIGEN_DIR="${EIGEN_DIR:-${TMPDIR:-/tmp}/eigen-${EIGEN_COMMIT}}"
@@ -124,7 +116,7 @@ for ABI in armeabi-v7a arm64-v8a; do
 done
 rm -rf "${MERGE_DIR}/aar-"* "${JNI_DEST}/armeabi-v7a" "${JNI_DEST}/arm64-v8a"
 mkdir -p "${JNI_DEST}"
-unzip -p "${ORT_DIR}/build-arm64-v8a/Release/java/build/android/outputs/aar/onnxruntime-release.aar" classes.jar > "${RUNTIME_JAR_DEST}"
+unzip -p "${AAR_SOURCE}" classes.jar > "${RUNTIME_JAR_DEST}"
 for ABI in armeabi-v7a arm64-v8a; do
   mkdir -p "${JNI_DEST}/${ABI}"
   cp "${MERGE_DIR}/${ABI}"/*.so "${JNI_DEST}/${ABI}/"
