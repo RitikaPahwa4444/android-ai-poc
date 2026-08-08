@@ -1,4 +1,4 @@
-package org.commons.ai.runtime
+package org.commons.ml.runtime
 
 import android.content.Context
 import ai.onnxruntime.OrtEnvironment

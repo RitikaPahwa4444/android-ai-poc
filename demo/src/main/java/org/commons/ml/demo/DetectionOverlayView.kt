@@ -1,6 +1,6 @@
-package org.commons.ai.demo
+package org.commons.ml.demo
 
-import org.commons.ai.common.Detection
+import org.commons.ml.common.Detection
 
 import android.content.Context
 import android.graphics.Canvas

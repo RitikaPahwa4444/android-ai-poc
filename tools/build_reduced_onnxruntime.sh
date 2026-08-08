@@ -4,7 +4,7 @@ set -euo pipefail
 # Build the Java-enabled, 16 KB-compatible ONNX Runtime used by this POC.
 # The app loads ORT-format files, so the official minimal build is applicable.
 # The script regenerates the checked-in runtime JAR and native libraries after
-# each ABI build so the published Commons AI AAR is self-contained.
+# each ABI build so the published Commons ML AAR is self-contained.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"

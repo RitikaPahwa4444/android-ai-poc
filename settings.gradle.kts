@@ -16,6 +16,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "commons-ai"
+rootProject.name = "commons-ml"
 include(":library")
 include(":demo")

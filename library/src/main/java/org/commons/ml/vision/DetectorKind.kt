@@ -1,6 +1,6 @@
-package org.commons.ai.vision
+package org.commons.ml.vision
 
-import org.commons.ai.common.DetectionType
+import org.commons.ml.common.DetectionType
 
 private const val FACE_ASSET = "models/face_detection_yunet_2023mar.ort"
 private const val FACE_INPUT_WIDTH = 320

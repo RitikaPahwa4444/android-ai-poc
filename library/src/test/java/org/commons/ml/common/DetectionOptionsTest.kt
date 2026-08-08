@@ -1,4 +1,4 @@
-package org.commons.ai.common
+package org.commons.ml.common
 
 import kotlin.test.Test
 import kotlin.test.assertFailsWith

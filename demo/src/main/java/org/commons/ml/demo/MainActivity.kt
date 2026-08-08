@@ -1,7 +1,7 @@
-package org.commons.ai.demo
+package org.commons.ml.demo
 
-import org.commons.ai.common.*
-import org.commons.ai.vision.CommonsVision
+import org.commons.ml.common.*
+import org.commons.ml.vision.CommonsVision
 
 import android.app.Activity
 import android.graphics.Bitmap
@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Commons AI", style = MaterialTheme.typography.headlineSmall)
+                        Text("Commons ML", style = MaterialTheme.typography.headlineSmall)
                         Text("Review detected faces and license plates", style = MaterialTheme.typography.bodyMedium)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Button(onClick = { openImage.launch(arrayOf("image/*")) }) { Text("Open") }
