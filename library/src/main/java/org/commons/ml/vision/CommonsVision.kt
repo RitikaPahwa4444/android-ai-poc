@@ -2,14 +2,8 @@ package org.commons.ml.vision
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.PointF
-import android.graphics.RectF
-import android.media.FaceDetector
-import android.os.Build
 import android.util.Log
 import org.commons.ml.common.AiDetector
-import org.commons.ml.common.Detection
 import org.commons.ml.common.DetectionOptions
 import org.commons.ml.common.DetectionResult
 import org.commons.ml.common.DetectionType
@@ -42,39 +36,26 @@ class CommonsVision(context: Context) : AutoCloseable {
     private class CombinedDetector(
         context: Context
     ) : AiDetector {
-        private val fallback = MediaFaceFallback()
-        private val runtime: ModelRuntime? =
-            if (Build.VERSION.SDK_INT >= 24) OrtRuntime(context) else null
+        private val runtime: ModelRuntime = OrtRuntime(context)
         private val face: AiDetector?
         private val plate: AiDetector?
         private val plateInitializationError: MlRuntimeException?
         private var closed = false
 
         init {
-            val activeRuntime = runtime
-            if (activeRuntime == null) {
-                face = null
-                plate = null
-                plateInitializationError = null
-            } else {
-                val faceResult = openDetector(activeRuntime, DetectorKind.FACE)
-                face = faceResult.first
+            val faceResult = openDetector(runtime, DetectorKind.FACE)
+            face = faceResult.first
 
-                val plateResult = openDetector(activeRuntime, DetectorKind.LICENSE_PLATE)
-                plate = plateResult.first
-                plateInitializationError = plateResult.second
-            }
+            val plateResult = openDetector(runtime, DetectorKind.LICENSE_PLATE)
+            plate = plateResult.first
+            plateInitializationError = plateResult.second
         }
 
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
             checkOpen()
             val faceResult = try {
-                if (face == null) {
-                    Log.i(TAG, "ONNX face detector unavailable; using MediaFaceDetector fallback.")
-                    fallback.detect(bitmap, options)
-                } else {
-                    face.detect(bitmap, options)
-                }
+                face?.detect(bitmap, options)
+                    ?: return DetectionResult.Unavailable("Face detection is unavailable.")
             } catch (error: MlRuntimeException) {
                 Log.e(TAG, "Face detection failed (${error.code}).", error)
                 return DetectionResult.Unavailable(
@@ -117,7 +98,7 @@ class CommonsVision(context: Context) : AutoCloseable {
             if (closed) return
             closed = true
             var failure: MlRuntimeException? = null
-            listOf(face, plate, fallback, runtime).forEach { resource ->
+            listOf(face, plate, runtime).forEach { resource ->
                 if (resource == null) return@forEach
                 try {
                     resource.close()
@@ -144,61 +125,4 @@ class CommonsVision(context: Context) : AutoCloseable {
 
     }
 
-    private class MediaFaceFallback : AiDetector {
-        override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
-            Log.d(TAG, "Running MediaFaceDetector fallback on ${bitmap.width}x${bitmap.height}.")
-            val scale = minOf(1f, 2048f / maxOf(bitmap.width, bitmap.height).toFloat())
-            val detectionBitmap = if (scale < 1f) {
-                Bitmap.createScaledBitmap(
-                    bitmap,
-                    (bitmap.width * scale).toInt(),
-                    (bitmap.height * scale).toInt(),
-                    true
-                )
-            } else {
-                bitmap
-            }
-            var width = detectionBitmap.width
-            if (width % 2 != 0) width--
-            if (width <= 0 || detectionBitmap.height <= 0) {
-                return DetectionResult.Success(emptyList())
-            }
-            val rgb565 = Bitmap.createBitmap(width, detectionBitmap.height, Bitmap.Config.RGB_565)
-            try {
-                Canvas(rgb565).drawBitmap(detectionBitmap, 0f, 0f, null)
-                val detector = FaceDetector(rgb565.width, rgb565.height, options.maximumResults)
-                val faces = arrayOfNulls<FaceDetector.Face>(options.maximumResults)
-                val count = detector.findFaces(rgb565, faces)
-                val detections = faces.take(count).mapNotNull { face ->
-                    face ?: return@mapNotNull null
-                    val midpoint = PointF()
-                    face.getMidPoint(midpoint)
-                    val radius = face.eyesDistance() * 1.8f
-                    Detection(
-                        DetectionType.FACE,
-                        face.confidence(),
-                        RectF(
-                            (midpoint.x - radius) / scale,
-                            (midpoint.y - radius) / scale,
-                            (midpoint.x + radius) / scale,
-                            (midpoint.y + radius) / scale
-                        ).apply {
-                            intersect(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
-                        }
-                    )
-                }
-                if (detections.isEmpty()) {
-                    Log.w(TAG, "MediaFaceDetector fallback completed without detections.")
-                } else {
-                    Log.i(TAG, "MediaFaceDetector fallback found ${detections.size} face(s).")
-                }
-                return DetectionResult.Success(detections)
-            } finally {
-                rgb565.recycle()
-                if (detectionBitmap !== bitmap) detectionBitmap.recycle()
-            }
-        }
-
-        override fun close() = Unit
-    }
 }

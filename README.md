@@ -2,8 +2,7 @@
 
 Commons ML is a standard Android library for on-device face and license-plate
 detection, plus a small Android demo for reviewing detections. It is Android-only
-by design; the repository does not use Kotlin Multiplatform and does not publish
-Maven artifacts.
+by design; the repository does not use Kotlin Multiplatform.
 
 ## Modules
 
@@ -39,9 +38,8 @@ try {
 Detection bounds are pixel coordinates in the exact bitmap supplied. The library
 does not depend on ajpegtran and does not blur or pixelate images.
 
-On API 24 and newer, face and plate detection use the bundled reduced ONNX
-Runtime. API 21-23 use Android's `FaceDetector` for faces and report license
-plates as unsupported. Runtime failures are represented by typed
+Face and plate detection use the bundled reduced ONNX Runtime on all supported
+Android API levels, including API 21. Runtime failures are represented by typed
 `MlRuntimeException` subclasses and are logged with a stable error code.
 
 ## Architecture
