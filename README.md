@@ -61,7 +61,7 @@ Runtime sessions are tracked by `OrtRuntime`, closed idempotently, and released
 even when one detector fails during cleanup. Calling detection after closing the
 facade raises `RuntimeClosedException`.
 
-## Build
+## Build and publish
 
 Use JDK 17, Android SDK 36, NDK 28.2.13676358, and CMake 4.1.2:
 
@@ -70,6 +70,7 @@ export JAVA_HOME=/path/to/jdk-17
 ./gradlew :library:test
 ./gradlew :library:assembleRelease
 ./gradlew :demo:assembleDebug
+./gradlew :library:publishToMavenLocal -PsignAllPublications=false
 ```
 
 The demo uses `arm64-v8a` native libraries from the library dependency. To verify
@@ -79,9 +80,10 @@ The demo uses `arm64-v8a` native libraries from the library dependency. To verif
 tools/verify_native_alignment.sh library/build/outputs/aar/library-release.aar
 ```
 
-No task in this repository publishes to Maven Central or a local Maven
-repository. Dependency and release decisions should be reviewed before adding
-publishing infrastructure.
+The library uses Maven coordinates
+`io.github.commons-app:commons-ml:0.1.0`. Maven Central publishing and signing
+remain configured through the Vanniktech plugin; provide credentials in CI before
+releasing. This cleanup does not publish artifacts automatically.
 
 ## Model provenance
 
