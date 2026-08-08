@@ -8,11 +8,21 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"
+ORT_PYTHON_VERSION="${ORT_PYTHON_VERSION:-1.24.1}"
 ORT_DIR="${ORT_DIR:-${TMPDIR:-/tmp}/onnxruntime-${ORT_VERSION}}"
 SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/Users/Shared/Library/Android/sdk}}"
 NDK_DIR="${ANDROID_NDK_HOME:-${SDK_DIR}/ndk/28.2.13676358}"
 CMAKE_DIR="${CMAKE_DIR:-${SDK_DIR}/cmake/4.1.2}"
 PY_ENV="${PY_ENV:-${TMPDIR:-/tmp}/ort-venv}"
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  for candidate in python3.12 python3.11 python3.10 python3; do
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      PYTHON_BIN="${candidate}"
+      break
+    fi
+  done
+fi
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 OPS_CONFIG="${ROOT_DIR}/tools/reduced_ops.config"
 EIGEN_COMMIT="1d8b82b0740839c0de7f1242a3585e3390ff5f33"
 EIGEN_DIR="${EIGEN_DIR:-${TMPDIR:-/tmp}/eigen-${EIGEN_COMMIT}}"
@@ -27,8 +37,26 @@ if [[ ! -d "${ORT_DIR}" ]]; then
     https://github.com/microsoft/onnxruntime.git "${ORT_DIR}"
 fi
 
-python3 -m venv "${PY_ENV}"
- "${PY_ENV}/bin/pip" install 'onnx==1.18.0' 'flatbuffers==25.2.10' 'onnxruntime==1.22.0'
+PYTHON_VERSION="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+case "${PYTHON_VERSION}" in
+  3.10|3.11|3.12|3.13) ;;
+  *)
+    echo "Python ${PYTHON_VERSION} is unsupported for ONNX Runtime 1.22.0; use Python 3.10-3.13 or set PYTHON_BIN." >&2
+    exit 1
+    ;;
+esac
+if [[ -x "${PY_ENV}/bin/python" ]]; then
+  ENV_PYTHON_VERSION="$("${PY_ENV}/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  if [[ "${ENV_PYTHON_VERSION}" != "${PYTHON_VERSION}" ]]; then
+    echo "Recreating ${PY_ENV} for Python ${PYTHON_VERSION} (found ${ENV_PYTHON_VERSION})."
+    rm -rf "${PY_ENV}"
+  fi
+fi
+"${PYTHON_BIN}" -m venv "${PY_ENV}"
+ "${PY_ENV}/bin/pip" install \
+   'onnx==1.18.0' \
+   'flatbuffers==25.2.10' \
+   "onnxruntime==${ORT_PYTHON_VERSION}"
 
 MODEL_DIR="${ROOT_DIR}/library/src/main/assets/models"
 for model in "${ROOT_DIR}"/tools/source_models/*.onnx; do
