@@ -18,6 +18,8 @@ import org.commons.ml.runtime.ModelRuntime
 import org.commons.ml.runtime.OrtRuntime
 import org.commons.ml.runtime.RuntimeClosedException
 
+private const val TAG = "CommonsVision"
+
 /**
  * Facade for on-device face and license-plate detection.
  *
@@ -67,7 +69,12 @@ class CommonsVision(context: Context) : AutoCloseable {
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
             checkOpen()
             val faceResult = try {
-                face?.detect(bitmap, options) ?: fallback.detect(bitmap, options)
+                if (face == null) {
+                    Log.i(TAG, "ONNX face detector unavailable; using MediaFaceDetector fallback.")
+                    fallback.detect(bitmap, options)
+                } else {
+                    face.detect(bitmap, options)
+                }
             } catch (error: MlRuntimeException) {
                 Log.e(TAG, "Face detection failed (${error.code}).", error)
                 return DetectionResult.Unavailable(
@@ -135,13 +142,11 @@ class CommonsVision(context: Context) : AutoCloseable {
             null to error
         }
 
-        private companion object {
-            const val TAG = "CommonsVision"
-        }
     }
 
     private class MediaFaceFallback : AiDetector {
         override suspend fun detect(bitmap: Bitmap, options: DetectionOptions): DetectionResult {
+            Log.d(TAG, "Running MediaFaceDetector fallback on ${bitmap.width}x${bitmap.height}.")
             val scale = minOf(1f, 2048f / maxOf(bitmap.width, bitmap.height).toFloat())
             val detectionBitmap = if (scale < 1f) {
                 Bitmap.createScaledBitmap(
@@ -181,6 +186,11 @@ class CommonsVision(context: Context) : AutoCloseable {
                             intersect(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
                         }
                     )
+                }
+                if (detections.isEmpty()) {
+                    Log.w(TAG, "MediaFaceDetector fallback completed without detections.")
+                } else {
+                    Log.i(TAG, "MediaFaceDetector fallback found ${detections.size} face(s).")
                 }
                 return DetectionResult.Success(detections)
             } finally {

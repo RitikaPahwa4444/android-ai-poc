@@ -170,7 +170,11 @@ class MainActivity : ComponentActivity() {
                 val detections = when (val value = result.first) {
                     is DetectionResult.Success -> value.detections
                     is DetectionResult.Partial -> value.detections
-                    is DetectionResult.Unavailable -> emptyList()
+                    is DetectionResult.Unavailable -> {
+                        overlay.setDetections(emptyList())
+                        setStatus("Detection unavailable: ${value.reason}")
+                        return@onSuccess
+                    }
                 }
                 overlay.setDetections(detections)
                 setStatus(String.format(
