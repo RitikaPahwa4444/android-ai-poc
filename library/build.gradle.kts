@@ -7,7 +7,7 @@ plugins {
 val libraryVersion = "0.1.0"
 
 android {
-    namespace = "org.commons.ai"
+    namespace = "org.commons.ml"
     compileSdk = 36
     defaultConfig {
         minSdk = 21
@@ -18,13 +18,13 @@ android {
 }
 
 fun MavenPom.configureCommonsAiMetadata() {
-    name.set("Commons AI")
+    name.set("Commons ML")
     description.set("Android library for on-device face and license-plate detection.")
-    url.set("https://github.com/commons-app/commons-ai-kit")
+    url.set("https://github.com/commons-app/commons-ml")
     licenses {
         license {
             name.set("MIT License")
-            url.set("https://github.com/commons-app/commons-ai-kit/blob/main/LICENSE")
+            url.set("https://github.com/commons-app/commons-ml/blob/main/LICENSE")
             distribution.set("repo")
         }
     }
@@ -36,9 +36,9 @@ fun MavenPom.configureCommonsAiMetadata() {
         }
     }
     scm {
-        url.set("https://github.com/commons-app/commons-ai-kit")
-        connection.set("scm:git:github.com/commons-app/commons-ai-kit.git")
-        developerConnection.set("scm:git:ssh://github.com/commons-app/commons-ai-kit.git")
+        url.set("https://github.com/commons-app/commons-ml")
+        connection.set("scm:git:github.com/commons-app/commons-ml.git")
+        developerConnection.set("scm:git:ssh://github.com/commons-app/commons-ml.git")
     }
 }
 
@@ -48,7 +48,7 @@ dependencies {
 }
 
 mavenPublishing {
-    coordinates("io.github.commons-app", "commons-ai", libraryVersion)
+    coordinates("io.github.commons-app", "commons-ml", libraryVersion)
     pom {
         configureCommonsAiMetadata()
     }

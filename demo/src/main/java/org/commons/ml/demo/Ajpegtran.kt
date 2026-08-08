@@ -1,4 +1,4 @@
-package org.commons.ai.demo
+package org.commons.ml.demo
 
 import android.content.Context
 import android.net.Uri

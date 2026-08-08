@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "org.commons.ai.demo"
+    namespace = "org.commons.ml.demo"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.commons.ai.demo"
+        applicationId = "org.commons.ml.demo"
         // ORT 1.22.0 requires API 24; do not override the library manifest.
         minSdk = 24
         targetSdk = 36
@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":commons-ai"))
+    implementation(project(":commons-ml"))
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

@@ -1,4 +1,4 @@
-package org.commons.ai.vision
+package org.commons.ml.vision
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -11,10 +11,10 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
 import java.nio.FloatBuffer
-import org.commons.ai.common.Detection
-import org.commons.ai.common.DetectionOptions
-import org.commons.ai.common.DetectionResult
-import org.commons.ai.runtime.OrtRuntime
+import org.commons.ml.common.Detection
+import org.commons.ml.common.DetectionOptions
+import org.commons.ml.common.DetectionResult
+import org.commons.ml.runtime.OrtRuntime
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.max

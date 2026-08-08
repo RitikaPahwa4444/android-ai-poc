@@ -1,9 +1,9 @@
-package org.commons.ai.vision
+package org.commons.ml.vision
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import org.commons.ai.common.*
+import org.commons.ml.common.*
 
 /**
  * Facade for on-device face and license-plate detection.

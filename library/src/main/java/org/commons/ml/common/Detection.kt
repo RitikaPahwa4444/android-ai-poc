@@ -1,4 +1,4 @@
-package org.commons.ai.common
+package org.commons.ml.common
 
 import android.graphics.RectF
 import android.graphics.Bitmap

@@ -1,4 +1,4 @@
-# Commons AI Android library and ajpegtran demo
+# Commons ML Android library and ajpegtran demo
 
 Android library for local face and license-plate suggestions, with a standalone demo app.
 
@@ -14,7 +14,7 @@ The publishable `library` module is one artifact with internal package boundarie
 - `vision`: internal YuNet and legacy face fallback implementations.
 - `demo`: application UI, manual review, and the ajpegtran-facing export path.
 
-Consumers depend only on `io.github.commons-app:commons-ai:0.1.0` and use the stable facade API:
+Consumers depend only on `io.github.commons-app:commons-ml:0.1.0` and use the stable facade API:
 
 ```kotlin
 val vision = CommonsVision(context)
@@ -92,15 +92,15 @@ of `core-for-system-modules.jar`. Then run:
 ./gradlew :library:publishToMavenLocal -PsignAllPublications=false
 ```
 
-The library uses Maven coordinates `io.github.commons-app:commons-ai:0.1.0`; consume the local
+The library uses Maven coordinates `io.github.commons-app:commons-ml:0.1.0`; consume the local
 artifact with `mavenLocal()` and one dependency:
 
 ```kotlin
-implementation("io.github.commons-app:commons-ai:0.1.0")
+implementation("io.github.commons-app:commons-ml:0.1.0")
 ```
 
 The published AAR contains the reduced ONNX Runtime Java classes and native libraries, so
-consumers declare only the `commons-ai` dependency.
+consumers declare only the `commons-ml` dependency.
 
 Maven Central publishing and signing are configured through the same Vanniktech plugin used
 by ajpegtran. Provide the Central Portal and signing credentials in CI before releasing.
@@ -144,7 +144,7 @@ The script fetches Eigen commit `1d8b82b0740839c0de7f1242a3585e3390ff5f33`; this
 works around the stale Eigen archive checksum currently encountered by the upstream
 build. The generated
 `libonnxruntime.so` and `libonnxruntime4j_jni.so` are embedded in the published
-`commons-ai` AAR. Verify the release AAR and APK, detector behavior, ELF alignment, and
+`commons-ml` AAR. Verify the release AAR and APK, detector behavior, ELF alignment, and
 ZIP/page alignment with
 `tools/verify_native_alignment.sh`.
 
@@ -175,7 +175,7 @@ mapping must be evaluated on real Commons images before integration.
 - LPD-YuNet was trained primarily on Chinese plates; recall may be poor for other regions.
 - The bundled plate graph has fixed input dimensions, so wide images use overlapping crops.
 - Adding a new model family requires a model adapter for its input/output contract.
-- These models cover faces and plates only; they do not implement the other future AI use cases.
+- These models cover faces and plates only; they do not implement the other future ML use cases.
 
 ## Licensing
 
