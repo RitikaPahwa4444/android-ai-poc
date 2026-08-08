@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build the Java-enabled, 16 KB-compatible ONNX Runtime used by Commons ML.
+# Build the Java-enabled, API 21 and 16 KB-compatible ONNX Runtime used by Commons ML.
 # The app loads ORT-format files, so the official minimal build is applicable.
 # The script regenerates the checked-in runtime JAR and native libraries after
 # each ABI build so the Android library AAR is self-contained.
@@ -67,6 +67,12 @@ BUILD_ARGS=( \
 )
 
 BUILD_ARGS+=(--cmake_extra_defines "FETCHCONTENT_SOURCE_DIR_EIGEN3=${EIGEN_DIR}")
+# API 21's linker requires the legacy DT_HASH table. Keep GNU hash as well so
+# the same binaries remain optimized for newer Android releases.
+BUILD_ARGS+=(--cmake_extra_defines \
+  "CMAKE_SHARED_LINKER_FLAGS=-Wl,--hash-style=both" \
+  "CMAKE_MODULE_LINKER_FLAGS=-Wl,--hash-style=both" \
+  "CMAKE_EXE_LINKER_FLAGS=-Wl,--hash-style=both")
 
 AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
 RUNTIME_JAR_DEST="${ROOT_DIR}/library/libs/onnxruntime-android-1.22.0-reduced.jar"

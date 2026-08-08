@@ -100,7 +100,11 @@ Android SDK/NDK, and CMake, then run:
 tools/build_reduced_onnxruntime.sh
 ```
 
-The script is maintenance tooling, not part of a normal application build.
+The script is maintenance tooling, not part of a normal application build. It
+passes `--hash-style=both` to the native linker so the bundled libraries retain
+the legacy `DT_HASH` table required by API 21 while also keeping `DT_GNU_HASH`
+for newer Android releases. The native alignment verifier checks this
+compatibility in addition to 16 KB `LOAD` segment alignment.
 
 ## Contributing
 

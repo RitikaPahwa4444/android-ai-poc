@@ -35,6 +35,14 @@ for library in "${libraries[@]}"; do
   "$READELF" -l "$library" | awk -v file="$library" '
     /LOAD/ { print file ": " $0; if ($NF != "0x4000") bad=1 }
     END { if (bad) exit 1 }'
+  "$READELF" -d "$library" | awk -v file="$library" '
+    /HASH/ && !/GNU_HASH/ { found=1 }
+    END {
+      if (!found) {
+        print file ": missing legacy DT_HASH required by Android API 21" > "/dev/stderr"
+        exit 1
+      }
+    }'
 done
 if command -v zipalign >/dev/null 2>&1; then
   zipalign -c -P 16 4 "$INPUT"
