@@ -8,14 +8,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ORT_VERSION="${ORT_VERSION:-v1.22.0}"
-ORT_PYTHON_VERSION="${ORT_PYTHON_VERSION:-1.24.1}"
+ORT_PYTHON_VERSION="${ORT_PYTHON_VERSION:-1.22.0}"
 ORT_DIR="${ORT_DIR:-${TMPDIR:-/tmp}/onnxruntime-${ORT_VERSION}}"
 SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/Users/Shared/Library/Android/sdk}}"
 NDK_DIR="${ANDROID_NDK_HOME:-${SDK_DIR}/ndk/28.2.13676358}"
 CMAKE_DIR="${CMAKE_DIR:-${SDK_DIR}/cmake/4.1.2}"
 PY_ENV="${PY_ENV:-${TMPDIR:-/tmp}/ort-venv}"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
-  for candidate in python3.12 python3.11 python3.10 python3; do
+  for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
     if command -v "${candidate}" >/dev/null 2>&1; then
       PYTHON_BIN="${candidate}"
       break
@@ -39,7 +39,7 @@ fi
 
 PYTHON_VERSION="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 case "${PYTHON_VERSION}" in
-  3.10|3.11|3.12|3.13) ;;
+  3.13) ;;
   *)
     echo "Python ${PYTHON_VERSION} is unsupported for ONNX Runtime 1.22.0; use Python 3.10-3.13 or set PYTHON_BIN." >&2
     exit 1
@@ -53,7 +53,7 @@ if [[ -x "${PY_ENV}/bin/python" ]]; then
   fi
 fi
 "${PYTHON_BIN}" -m venv "${PY_ENV}"
- "${PY_ENV}/bin/pip" install \
+"${PY_ENV}/bin/python" -m pip install \
    'onnx==1.18.0' \
    'flatbuffers==25.2.10' \
    "onnxruntime==${ORT_PYTHON_VERSION}"
@@ -102,22 +102,29 @@ BUILD_ARGS+=(--cmake_extra_defines \
   "CMAKE_MODULE_LINKER_FLAGS=-Wl,--hash-style=both" \
   "CMAKE_EXE_LINKER_FLAGS=-Wl,--hash-style=both")
 
-AAR_SOURCE="${ORT_DIR}/build/Android/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
 RUNTIME_JAR_DEST="${ROOT_DIR}/library/libs/onnxruntime-android-1.22.0-reduced.jar"
 JNI_DEST="${ROOT_DIR}/library/src/main/jniLibs"
 MERGE_DIR="$(mktemp -d)"
 trap 'rm -rf "${MERGE_DIR}"' EXIT
 for ABI in armeabi-v7a arm64-v8a; do
+  ABI_BUILD_DIR="${ORT_DIR}/build-${ABI}"
   PATH="${PY_ENV}/bin:${PATH}" "${ORT_DIR}/build.sh" \
-    "${BUILD_ARGS[@]}" --android_abi="${ABI}"
+    "${BUILD_ARGS[@]}" --android_abi="${ABI}" --build_dir="${ABI_BUILD_DIR}"
+  AAR_SOURCE="${ABI_BUILD_DIR}/Release/java/build/android/outputs/aar/onnxruntime-release.aar"
+  test -f "${AAR_SOURCE}" || { echo "Missing ONNX Runtime AAR for ${ABI}: ${AAR_SOURCE}" >&2; exit 1; }
   ABI_DIR="${MERGE_DIR}/${ABI}"
   mkdir -p "${ABI_DIR}"
-  unzip -q "${AAR_SOURCE}" "jni/${ABI}/*.so" -d "${MERGE_DIR}/aar-${ABI}"
+  unzip -q "${AAR_SOURCE}" "jni/${ABI}/*.so" -d "${MERGE_DIR}/aar-${ABI}" || { echo "AAR contains no native libraries for ${ABI}" >&2; exit 1; }
   cp "${MERGE_DIR}/aar-${ABI}"/jni/"${ABI}"/*.so "${ABI_DIR}/"
+  READELF="${NDK_DIR}/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-readelf"
+  for library in "${ABI_DIR}"/*.so; do
+    "${READELF}" -d "${library}" | grep -q '(HASH)' || { echo "${library} is missing DT_HASH" >&2; exit 1; }
+    "${READELF}" -d "${library}" | grep -q '(GNU_HASH)' || { echo "${library} is missing DT_GNU_HASH" >&2; exit 1; }
+  done
 done
 rm -rf "${MERGE_DIR}/aar-"* "${JNI_DEST}/armeabi-v7a" "${JNI_DEST}/arm64-v8a"
 mkdir -p "${JNI_DEST}"
-unzip -p "${AAR_SOURCE}" classes.jar > "${RUNTIME_JAR_DEST}"
+unzip -p "${ORT_DIR}/build-arm64-v8a/Release/java/build/android/outputs/aar/onnxruntime-release.aar" classes.jar > "${RUNTIME_JAR_DEST}"
 for ABI in armeabi-v7a arm64-v8a; do
   mkdir -p "${JNI_DEST}/${ABI}"
   cp "${MERGE_DIR}/${ABI}"/*.so "${JNI_DEST}/${ABI}/"
