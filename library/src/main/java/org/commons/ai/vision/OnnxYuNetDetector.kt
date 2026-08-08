@@ -13,9 +13,9 @@ import ai.onnxruntime.TensorInfo
 import java.nio.FloatBuffer
 import org.commons.ai.common.Detection
 import org.commons.ai.common.DetectionOptions
-import org.commons.ai.common.DetectionType
 import org.commons.ai.common.DetectionResult
 import org.commons.ai.runtime.OrtRuntime
+import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
@@ -64,11 +64,8 @@ class OnnxYuNetDetector internal constructor(
             Log.w("FaceDetector", "YuNet is unavailable; using platform FaceDetector")
             return DetectionResult.Success(detectPlatformFaces(source, threshold).take(options.maximumResults))
         }
-        val regions = if (kind == DetectorKind.LICENSE_PLATE) {
+        val regions =
             plateRegions(source)
-        } else {
-            listOf(InferenceRegion(0, 0, source.width, source.height))
-        }
         val detections = regions.flatMap { region ->
             val crop = Bitmap.createBitmap(source, region.left, region.top, region.width, region.height)
             try {
@@ -289,8 +286,15 @@ class OnnxYuNetDetector internal constructor(
                 bottom * sourceHeight / scaleY
             )
             box.intersect(0f, 0f, sourceWidth.toFloat(), sourceHeight.toFloat())
-            if (box.width() > 1f && box.height() > 1f) {
-                detections += Detection(kind.detectionType, score, box)
+            val width = box.width()
+            val height = box.height()
+            if (width > 1f && height > 1f) {
+                val aspectRatio = width / height
+                // Standard license plates are horizontal rectangles (aspect ratio ~1.3 to 6.5).
+                // Reject square or tall false positives like headlights, grills, or road signs.
+                if (aspectRatio in MIN_PLATE_ASPECT_RATIO..MAX_PLATE_ASPECT_RATIO) {
+                    detections += Detection(kind.detectionType, score, box)
+                }
             }
         }
         return nonMaximumSuppression(detections)
@@ -331,38 +335,45 @@ class OnnxYuNetDetector internal constructor(
         return priors
     }
 
+    /**
+     * Slices the source image into small, high-resolution chunks (640×480 px, 2× model size).
+     * Because each chunk is small, minimal downsampling occurs when resized to the model's 320×240 input,
+     * allowing the model to detect small license plates easily.
+     */
     private fun plateRegions(source: Bitmap): List<InferenceRegion> {
-        val targetAspect = inputWidth.toFloat() / inputHeight
-        val sourceAspect = source.width.toFloat() / source.height
-        if (sourceAspect <= targetAspect) {
-            val cropHeight = min(source.height, (source.width / targetAspect).roundToInt())
-            return slidingRegions(source.height, cropHeight).map {
-                InferenceRegion(0, it, source.width, cropHeight)
-            }
-        }
+        val chunkWidth = min(source.width, inputWidth * CHUNK_SCALE_FACTOR)
+        val chunkHeight = min(source.height, inputHeight * CHUNK_SCALE_FACTOR)
 
-        val cropWidth = min(source.width, (source.height * targetAspect).roundToInt())
-        return slidingRegions(source.width, cropWidth).map {
-            InferenceRegion(it, 0, cropWidth, source.height)
+        val xPositions = chunkPositions(source.width, chunkWidth)
+        val yPositions = chunkPositions(source.height, chunkHeight)
+
+        return yPositions.flatMap { y ->
+            xPositions.map { x ->
+                InferenceRegion(x, y, chunkWidth, chunkHeight)
+            }
         }
     }
 
-    private fun slidingRegions(total: Int, window: Int): List<Int> {
+    private fun chunkPositions(total: Int, window: Int): List<Int> {
         if (window >= total) return listOf(0)
-        val last = total - window
-        return listOf(0, last / 2, last).distinct()
+        val overlap = (window * CHUNK_OVERLAP_FRACTION).roundToInt()
+        val step = max(1, window - overlap)
+        val count = ceil((total - overlap).toFloat() / step).toInt()
+        return (0 until count).map { i ->
+            min(i * step, total - window)
+        }.distinct()
     }
 
     /** YuNet exports sigmoid probabilities, not logits. Match OpenCV's clamp. */
     private fun probability(value: Float): Float = value.coerceIn(0f, 1f)
 
-    private fun nonMaximumSuppression(input: List<Detection>): List<Detection> {
+    private fun nonMaximumSuppression(input: List<Detection>, iouThreshold: Float = 0.3f): List<Detection> {
         val remaining = input.sortedByDescending { it.confidence }.toMutableList()
         val selected = mutableListOf<Detection>()
         while (remaining.isNotEmpty()) {
             val best = remaining.removeAt(0)
             selected += best
-            remaining.removeAll { intersectionOverUnion(best.bounds, it.bounds) > 0.3f }
+            remaining.removeAll { intersectionOverUnion(best.bounds, it.bounds) > iouThreshold }
         }
         return selected
     }
@@ -401,4 +412,15 @@ class OnnxYuNetDetector internal constructor(
         val width: Int,
         val height: Int
     )
+
+    private companion object {
+        /** Each chunk is 2× the model input size (640×480 px). */
+        const val CHUNK_SCALE_FACTOR = 2
+        /** Fractional overlap between adjacent chunks (20%). */
+        const val CHUNK_OVERLAP_FRACTION = 0.20f
+        /** Minimum width-to-height ratio for a valid license plate rectangle. */
+        const val MIN_PLATE_ASPECT_RATIO = 1.3f
+        /** Maximum width-to-height ratio for a valid license plate rectangle. */
+        const val MAX_PLATE_ASPECT_RATIO = 5.5f
+    }
 }
