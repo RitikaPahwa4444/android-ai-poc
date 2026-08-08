@@ -1,10 +1,7 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
-    id("com.vanniktech.maven.publish")
 }
-
-val libraryVersion = "0.1.0"
 
 android {
     namespace = "org.commons.ml"
@@ -17,39 +14,7 @@ android {
     kotlinOptions.jvmTarget = "17"
 }
 
-fun MavenPom.configureCommonsAiMetadata() {
-    name.set("Commons ML")
-    description.set("Android library for on-device face and license-plate detection.")
-    url.set("https://github.com/commons-app/commons-ml")
-    licenses {
-        license {
-            name.set("MIT License")
-            url.set("https://github.com/commons-app/commons-ml/blob/main/LICENSE")
-            distribution.set("repo")
-        }
-    }
-    developers {
-        developer {
-            id.set("RitikaPahwa4444")
-            name.set("Ritika Pahwa")
-            url.set("https://github.com/RitikaPahwa4444")
-        }
-    }
-    scm {
-        url.set("https://github.com/commons-app/commons-ml")
-        connection.set("scm:git:github.com/commons-app/commons-ml.git")
-        developerConnection.set("scm:git:ssh://github.com/commons-app/commons-ml.git")
-    }
-}
-
 dependencies {
     implementation(files("libs/onnxruntime-android-1.22.0-reduced.jar"))
     testImplementation(kotlin("test"))
-}
-
-mavenPublishing {
-    coordinates("io.github.commons-app", "commons-ml", libraryVersion)
-    pom {
-        configureCommonsAiMetadata()
-    }
 }
